@@ -1,0 +1,25 @@
+name: Windows build
+on: [workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13.8'
+          architecture: x64
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m pytest tests/unit -q
+        env:
+          QT_QPA_PLATFORM: offscreen
+      - run: python -m PyInstaller --clean --noconfirm packaging/task_manager.spec
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TaskManager-Windows-x64
+          path: |
+            dist/TaskManager.exe
+            config/database.example.ini
+            START_HERE_WINDOWS.md

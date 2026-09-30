@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+.pytest_cache/
+build/
+dist/
+*.egg-info/
+config/database.ini
+*.log
+runtime/
+MANIFEST.sha256
+.env
+.env.*
+*.backup
+*.dump

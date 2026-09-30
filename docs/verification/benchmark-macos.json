@@ -1,0 +1,85 @@
+{
+  "platform": "macOS-26.4.1-arm64-arm-64bit-Mach-O",
+  "processor": "arm",
+  "python": "3.13.8",
+  "physical_memory_bytes": 8589934592,
+  "logical_cpus": 8,
+  "network": "127.0.0.1:55432",
+  "mode": "offscreen",
+  "users": 100,
+  "tasks": 1000,
+  "database": {
+    "bytes": 8697535,
+    "version": "PostgreSQL 18.0 (Postgres.app) on aarch64-apple-darwin23.6.0, compiled by Apple clang version 15.0.0 (clang-1500.3.9.4), 64-bit"
+  },
+  "client_rss_bytes": 137134080,
+  "timings": {
+    "list_ui": {
+      "median_seconds": 0.0282,
+      "max_seconds": 0.0323,
+      "samples": [
+        0.0323,
+        0.0283,
+        0.0282,
+        0.0265,
+        0.0258
+      ]
+    },
+    "search_ui": {
+      "median_seconds": 0.0282,
+      "max_seconds": 0.0286,
+      "samples": [
+        0.0286,
+        0.0284,
+        0.0277,
+        0.0266,
+        0.0282
+      ]
+    },
+    "filter_ui": {
+      "median_seconds": 0.0207,
+      "max_seconds": 0.0211,
+      "samples": [
+        0.0211,
+        0.0207,
+        0.0203,
+        0.02,
+        0.0211
+      ]
+    },
+    "sort_ui": {
+      "median_seconds": 0.0267,
+      "max_seconds": 0.027,
+      "samples": [
+        0.0261,
+        0.0263,
+        0.027,
+        0.0267,
+        0.027
+      ]
+    },
+    "report_1000_ui": {
+      "median_seconds": 0.0384,
+      "max_seconds": 0.0427,
+      "samples": [
+        0.0427,
+        0.039,
+        0.0384,
+        0.0377,
+        0.0362
+      ]
+    },
+    "csv_1000_ui": {
+      "median_seconds": 0.0219,
+      "max_seconds": 0.0726,
+      "samples": [
+        0.0219,
+        0.0695,
+        0.0726,
+        0.0199,
+        0.0193
+      ]
+    }
+  },
+  "limits": "Source client, not a Windows executable; UI event processing included, actual monitor presentation not measured."
+}

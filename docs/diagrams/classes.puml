@@ -1,0 +1,91 @@
+@startuml
+skinparam classAttributeIconSize 0
+hide circle
+class User {
+  +id: int
+  +login: str
+  +role: Role
+  -password_hash: str
+  --
+  +is_admin(): bool
+}
+class Category {
+  +id: int
+  +name: str
+  --
+}
+class Task {
+  +id: int
+  +title: str
+  +description: str
+  +assignee_id: int
+  +category_id: int
+  +due_date: date
+  +priority: Priority
+  +status: TaskStatus
+  +assignee: str
+  +category: str
+  --
+  +change_status(new_status: TaskStatus): None
+  +is_overdue(current_date: date): bool
+}
+class Session {
+  +user_id: int
+  --
+}
+class UserService {
+  +database: Database
+  --
+  +get_current(session: Session): User
+  +get_users(session: Session): list[User]
+  +create_user(session: Session, login: str, password: str, role: Role): int
+  +update_user(session: Session, user_id: int, login: str, role: Role): None
+  +delete_user(session: Session, user_id: int): None
+  +reset_password(session: Session, user_id: int, password: str): None
+  -_credentials(login: str): User | None
+}
+class AuthService {
+  +user_service: UserService
+  --
+  +authenticate(login: str, password: str): tuple[Session, User]
+}
+class TaskService {
+  +database: Database
+  --
+  +get_tasks(session: Session, query: TaskQuery, require_admin: bool): TaskList
+  +get_selected(session: Session, task_ids: list[int]): TaskList
+  +get_categories(session: Session): list[Category]
+  +create_task(session: Session, data: TaskInput): int
+  +update_task(session: Session, task_id: int, data: TaskInput, status: TaskStatus | None): None
+  +delete_task(session: Session, task_id: int): None
+  +change_status(session: Session, task_id: int, status: TaskStatus): None
+}
+class ReportService {
+  +task_service: TaskService
+  +user_service: UserService
+  --
+  +create_task_report(session: Session, task_id: int): str
+  +create_summary(session: Session, task_ids: list[int]): str
+  +export_tasks(session: Session, query: TaskQuery, path: str | Path): None
+  +export_users(session: Session, path: str | Path): None
+}
+class Database {
+  +config: DatabaseConfig
+  --
+  +transaction(): ContextManager[RealDictCursor]
+  +ping(): None
+}
+User "1" -- "0..*" Task : ответственный
+Category "1" -- "0..*" Task : категория
+AuthService --> UserService
+UserService --> Database
+TaskService --> Database
+ReportService --> TaskService
+ReportService --> UserService
+UserService ..> User
+TaskService ..> Task
+TaskService ..> Category
+AuthService ..> Session
+UserService ..> Session
+TaskService ..> Session
+@enduml
