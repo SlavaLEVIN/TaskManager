@@ -213,12 +213,33 @@ class TaskService:
             cursor.execute("SELECT id,name FROM categories ORDER BY name,id")
             return [Category(**row) for row in cursor.fetchall()]
 
+    def save_category(self, session: Session, name: str, category_id: int | None = None) -> int:
+        name = required_text(name, "Название категории")
+        with self.database.transaction() as cursor:
+            current_user(cursor, session, admin=True)
+            cursor.execute("SELECT has_table_privilege(current_user, 'categories', 'INSERT') AND has_table_privilege(current_user, 'categories', 'UPDATE') AS allowed")
+            if not cursor.fetchone()["allowed"]:
+                raise AppError("Для управления категориями администратору базы нужно один раз запустить UPDATE_DATABASE.cmd из комплекта обновления. Задачи и пользователи сохранятся.")
+            cursor.execute("SELECT pg_advisory_xact_lock(%s)", (USER_LOCK + 1,))
+            cursor.execute("SELECT id FROM categories WHERE lower(name)=lower(%s)", (name,))
+            duplicate = cursor.fetchone()
+            if duplicate and duplicate["id"] != category_id:
+                raise AppError("Категория с таким названием уже существует.")
+            if category_id is None:
+                cursor.execute("INSERT INTO categories(name) VALUES(%s) RETURNING id", (name,))
+            else:
+                cursor.execute("UPDATE categories SET name=%s WHERE id=%s RETURNING id", (name, category_id))
+            row = cursor.fetchone()
+            if row is None:
+                raise AppError("Категория больше не существует. Обновите список.")
+            return row["id"]
+
     @staticmethod
     def _references(cursor, data: TaskInput):
         cursor.execute("SELECT id FROM users WHERE id=%s FOR KEY SHARE", (data.assignee_id,))
         if cursor.fetchone() is None:
             raise AppError("Ответственный не существует. Обновите список пользователей.")
-        # Внешний ключ защищает ссылку при записи; категории доступны клиенту только для чтения.
+        # Внешний ключ защищает ссылку на категорию при записи.
         cursor.execute("SELECT id FROM categories WHERE id=%s", (data.category_id,))
         if cursor.fetchone() is None:
             raise AppError("Категория не существует. Обновите справочник.")
@@ -299,14 +320,14 @@ class ReportService:
 
     def create_summary(self, session: Session, task_ids: list[int]) -> str:
         result = self.task_service.get_selected(session, task_ids)
-        lines = ["ОТЧЁТ ПО ЗАДАЧАМ", f"Дата сервера: {result.today:%d.%m.%Y}", f"Количество задач: {len(result.tasks)}", ""]
+        lines = ["ОТЧЁТ ПО ЗАДАЧАМ", f"Дата создания отчёта: {result.today:%d.%m.%Y}", f"Количество задач: {len(result.tasks)}", ""]
         lines.extend(f"{LABELS[status]}: {sum(task.status == status for task in result.tasks)}" for status in TaskStatus)
         lines.extend(["", "Состояние задач на момент формирования; даты переходов статуса не хранятся.", ""])
         for task in result.tasks:
             lines.extend((f"Задача №{task.id}: {task.title}", f"Ответственный: {task.assignee}",
                           f"Категория: {task.category}", f"Приоритет: {LABELS[task.priority]}",
                           f"Срок: {task.due_date:%d.%m.%Y}", f"Статус: {LABELS[task.status]}",
-                          f"Просрочена: {'Да' if task.is_overdue(result.today) else 'Нет'}",
+                          *(("Просрочена",) if task.is_overdue(result.today) else ()),
                           f"Описание: {task.description}", "", "─" * 48, ""))
         return "\n".join(lines)
 

@@ -149,7 +149,7 @@ def test_reports_requery_no_table_and_filtered_csv(env, tmp_path):
         env.reports.create_summary(env.ivan, [])
     env.tasks.change_status(env.ivan, one, TaskStatus.IN_PROGRESS)
     report = env.reports.create_task_report(env.ivan, one)
-    assert "В работе" in report and "Просрочена: Нет" in report and title in report
+    assert "В работе" in report and "Просрочена" not in report and title in report
     tasks_path, users_path = tmp_path / "tasks.csv", tmp_path / "users.csv"
     env.reports.export_tasks(env.admin, TaskQuery(text="Сводка"), tasks_path)
     env.reports.export_users(env.admin, users_path)

@@ -5,6 +5,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-2022
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -12,7 +13,8 @@ jobs:
           python-version: '3.13.8'
           architecture: x64
       - run: python -m pip install -r requirements-dev.txt
-      - run: python -m pytest tests/unit -q --junitxml=windows-unit-tests.xml
+      - run: python -m pytest tests/unit -v --junitxml=windows-unit-tests.xml
+        timeout-minutes: 3
         env:
           QT_QPA_PLATFORM: windows
       - name: Capture light and dark interface on Windows
@@ -39,4 +41,4 @@ jobs:
             windows-screenshots/
             config/database.example.ini
             START_HERE_WINDOWS.md
-            docs/UPDATE_1.1.md
+            docs/UPDATE_1.2.md

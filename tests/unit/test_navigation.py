@@ -11,6 +11,7 @@ def click_box_button(text):
                 if button.text() == text:
                     button.click()
                     return
+    QTimer.singleShot(20, lambda: click_box_button(text))
 
 
 def test_close_confirmation_cancel_preserves_screen(qtbot):

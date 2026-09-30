@@ -13,6 +13,6 @@ a = Analysis(
     noarchive=False,
 )
 pyz = PYZ(a.pure)
-exe = EXE(pyz, a.scripts, a.binaries, a.datas, [], name='TaskManager', debug=False,
+exe = EXE(pyz, a.scripts, a.binaries, a.datas, [], name='TaskManager', icon=str(root / 'src/task_manager/resources/app.ico'), debug=False,
           bootloader_ignore_signals=False, strip=False, upx=False, console=False,
           disable_windowed_traceback=False)

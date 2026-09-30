@@ -10,7 +10,7 @@
 
 Индексы `tasks_assignee_idx`, `tasks_due_date_idx`, `tasks_category_idx` поддерживают основные отборы. Для 1000 задач полный просмотр текстов достаточен. Дополнительный поисковый движок не нужен. Дальнейшая индексация определяется EXPLAIN и реальными измерениями, а не вводится заранее.
 
-Права штатного технического клиента: CONNECT к БД, USAGE схемы, SELECT/INSERT/UPDATE/DELETE для users и tasks, SELECT для categories, USAGE/SELECT последовательностей. Нет superuser, CREATE DATABASE, CREATE ROLE, CREATE в схеме, DELETE категорий. Владелец схемы — обслуживающий администратор PostgreSQL.
+Права штатного технического клиента: CONNECT к БД, USAGE схемы, SELECT/INSERT/UPDATE/DELETE для users и tasks, SELECT/INSERT/UPDATE для categories, USAGE/SELECT последовательностей. Нет superuser, CREATE DATABASE, CREATE ROLE, CREATE в схеме, DELETE категорий. Владелец схемы — обслуживающий администратор PostgreSQL.
 
 Сервис проверяет переходы статусов; БД проверяет допустимые значения и ссылочную целостность. Прямое SQL-подключение может обойти клиентское правило переходов и прикладные роли. Это документированная граница заданной архитектуры.
 

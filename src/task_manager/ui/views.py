@@ -1,11 +1,12 @@
 """Представления собирают ввод и отображают данные, не обращаясь к БД."""
 
 from pathlib import Path
+from html import escape
 
-from PySide6.QtCore import QDate, QEvent, Qt, Signal
-from PySide6.QtGui import QIcon, QTextCharFormat
+from PySide6.QtCore import QDate, QEvent, QSize, QTimer, Qt, Signal
+from PySide6.QtGui import QAction, QIcon, QTextCharFormat
 from PySide6.QtWidgets import (
-    QAbstractItemView, QApplication, QCalendarWidget, QCheckBox, QComboBox, QDateEdit, QDialog, QDialogButtonBox,
+    QAbstractItemView, QAbstractSpinBox, QApplication, QCalendarWidget, QCheckBox, QComboBox, QDateEdit, QDialog, QDialogButtonBox,
     QFormLayout, QFrame, QGridLayout, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListView, QMenu,
     QMainWindow, QMessageBox, QPushButton, QSpinBox, QSplitter, QStackedWidget,
     QSizePolicy, QTableView, QTextBrowser, QTextEdit, QToolButton, QTabWidget, QVBoxLayout, QWidget,
@@ -16,6 +17,14 @@ from ..preferences import Preferences
 from .theme import apply_theme
 from ..domain import LABELS, TRANSITIONS, Priority, Role, TaskInput, TaskQuery, TaskStatus
 from .table_models import TableModel, TaskTableModel
+
+
+def resource_text(filename):
+    return (Path(__file__).resolve().parents[1] / "resources" / filename).read_text(encoding="utf-8")
+
+
+def justified(text):
+    return f'<p align="justify">{escape(text)}</p>'
 
 
 def button(label, layout, callback=None):
@@ -85,7 +94,10 @@ def table(model):
     widget.setAlternatingRowColors(True)
     widget.verticalHeader().setVisible(False)
     widget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-    widget.horizontalHeader().setStretchLastSection(True)
+    widget.horizontalHeader().setStretchLastSection(False)
+    widget.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+    for column in range(1, model.columnCount()):
+        widget.horizontalHeader().setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
     widget.setWordWrap(False)
     widget.verticalHeader().setDefaultSectionSize(34)
     widget.fit_headers()
@@ -126,10 +138,6 @@ class LoginView(QWidget):
         self.preferences = button("Настройки программы", layout)
         self.retry = button("Повторить подключение", layout)
         self.exit = button("Завершить работу", layout)
-        note = QLabel("Доступные действия определяются ролью учётной записи.")
-        note.setWordWrap(True)
-        note.setObjectName("muted")
-        layout.addWidget(note)
         outer.addWidget(card, alignment=Qt.AlignmentFlag.AlignHCenter)
         outer.addStretch()
 
@@ -162,6 +170,9 @@ class TasksView(QWidget):
             filters.addWidget(widget, 0, column)
         self.date_enabled = QCheckBox("Срок от / до")
         self.date_from, self.date_to = calendar(), calendar()
+        for field in (self.date_from, self.date_to):
+            field.setEnabled(False)
+            self.date_enabled.toggled.connect(field.setEnabled)
         dates = QHBoxLayout()
         dates.addWidget(self.date_enabled)
         dates.addWidget(self.date_from)
@@ -283,6 +294,30 @@ class UsersView(QWidget):
         return self.model.objects[rows[0].row()] if rows else None
 
 
+class CategoriesView(QWidget):
+    def __init__(self):
+        super().__init__()
+        layout = QVBoxLayout(self)
+        title = QLabel("Категории задач")
+        title.setObjectName("headline")
+        layout.addWidget(title)
+        note = QLabel("Добавляйте категории для своей команды. При переименовании новая подпись появится и в существующих задачах.")
+        note.setWordWrap(True)
+        layout.addWidget(note)
+        self.model = TableModel(["Название"], self)
+        self.table = table(self.model)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        layout.addWidget(self.table)
+        actions = QHBoxLayout()
+        self.create = button("Добавить", actions)
+        self.rename = button("Переименовать", actions)
+        self.refresh = button("Обновить", actions)
+
+    def selected(self):
+        rows = self.table.selectionModel().selectedRows()
+        return self.model.objects[rows[0].row()] if rows else None
+
+
 class ReportsView(QWidget):
     def __init__(self):
         super().__init__()
@@ -304,6 +339,9 @@ class ReportsView(QWidget):
         dates = QHBoxLayout()
         self.date_enabled = QCheckBox("Срок задачи с")
         self.date_from, self.date_to = calendar(), calendar()
+        for field in (self.date_from, self.date_to):
+            field.setEnabled(False)
+            self.date_enabled.toggled.connect(field.setEnabled)
         dates.addWidget(self.date_enabled)
         dates.addWidget(self.date_from)
         dates.addWidget(QLabel("по"))
@@ -314,6 +352,9 @@ class ReportsView(QWidget):
         note.setWordWrap(True)
         note.setObjectName("muted")
         pick_layout.addWidget(note)
+        self.active_filters = QLabel("Период не ограничен")
+        self.active_filters.setWordWrap(True)
+        pick_layout.addWidget(self.active_filters)
         self.model = TaskTableModel(self)
         self.table = table(self.model)
         self.table.setColumnWidth(0, 260)
@@ -335,7 +376,6 @@ class ReportsView(QWidget):
         output_layout.addWidget(self.text, 1)
         report_actions = QHBoxLayout()
         self.copy = button("Скопировать отчёт", report_actions)
-        self.save = button("Сохранить отчёт в TXT", report_actions)
         output_layout.addLayout(report_actions)
         self.tabs.addTab(picker, "1. Выбор задач")
         self.tabs.addTab(output, "2. Готовый отчёт")
@@ -404,6 +444,13 @@ class EditDialog(QDialog):
                 widget.setEnabled(not busy)
 
 
+class CategoryDialog(EditDialog):
+    def __init__(self, parent, category=None):
+        super().__init__("Переименовать категорию" if category else "Новая категория", parent)
+        self.name = QLineEdit(category.name if category else "")
+        self.form.addRow("Название", self.name)
+
+
 class TaskDialog(EditDialog):
     def __init__(self, users, categories, today, parent, task=None):
         super().__init__("Редактирование задачи" if task else "Новая задача", parent)
@@ -422,8 +469,9 @@ class TaskDialog(EditDialog):
         self.category_hint.setObjectName("muted")
         self.category_hint.setWordWrap(True)
         descriptions = {"Документация": "Подготовка текстов, инструкций и отчётных документов.",
-                        "Обслуживание": "Настройка, проверка и исправление оборудования или программ.",
-                        "Организационные": "Встречи, согласования и планирование работы команды.",
+                        "Разработка": "Разработка программ, модулей и интерфейсов.",
+                        "Обслуживание": "Поддержка оборудования и действующих систем.",
+                        "Организация работы": "Встречи, согласования и планирование работы команды.",
                         "Прочее": "Задачи, которые не подходят под остальные категории."}
         self.category.currentTextChanged.connect(lambda name: self.category_hint.setText(descriptions.get(name, "Категория для группировки задач.")))
         self.category_hint.setText(descriptions.get(self.category.currentText(), "Категория для группировки задач."))
@@ -482,6 +530,7 @@ class SettingsDialog(EditDialog):
         for key, value in vars(config).items():
             if key in {"port", "connect_timeout", "statement_timeout"}:
                 field = QSpinBox()
+                field.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
                 field.setRange(1, 65535)
                 field.setValue(value)
             elif key == "sslmode":
@@ -495,9 +544,21 @@ class SettingsDialog(EditDialog):
                     field.setEchoMode(QLineEdit.EchoMode.Password)
             self.fields[key] = field
             self.form.addRow(labels[key], field)
-        notice = QLabel("Эти данные настраивают доступ к серверу. Учётная запись приложения вводится в окне входа.")
-        notice.setWordWrap(True)
-        self.form.addRow(notice)
+        guidance = QHBoxLayout()
+        button("Инструкция для пользователя", guidance, lambda: self.guide("connection-user.html"))
+        button("Инструкция для администратора", guidance, lambda: self.guide("connection-admin.html"))
+        self.form.addRow(guidance)
+
+    def guide(self, filename):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Настройка подключения")
+        dialog.resize(680, 560)
+        layout = QVBoxLayout(dialog)
+        text = QTextBrowser()
+        text.setHtml(resource_text(filename))
+        layout.addWidget(text)
+        button("Закрыть", layout, dialog.accept)
+        dialog.exec()
 
     def values(self):
         values = {}
@@ -527,6 +588,7 @@ class PreferencesDialog(EditDialog):
         self.form.addRow("После входа открывать", self.start_page)
         self.form.addRow(self.confirm_exit)
         note = QLabel("Настройки сохраняются на этом компьютере для текущего пользователя Windows. Тема применяется также к спискам, календарю и диалогам.")
+        note.setText(justified(note.text()))
         note.setWordWrap(True)
         self.form.addRow(note)
 
@@ -549,17 +611,16 @@ class MainWindow(QMainWindow):
         central = QWidget()
         central_layout = QVBoxLayout(central)
         central_layout.setContentsMargins(16, 12, 16, 12)
-        connection_row = QHBoxLayout()
-        self.connection = QLabel("Подключение ещё не проверено")
+        self.connection = QLabel(self)
         self.connection.setObjectName("connection")
-        connection_row.addWidget(self.connection)
-        self.activity = QLabel()
-        self.activity.setObjectName("muted")
-        self.activity.setWordWrap(True)
-        connection_row.addWidget(self.activity, 1)
-        self.retry = QPushButton("Проверить подключение")
-        connection_row.addWidget(self.retry)
-        central_layout.addLayout(connection_row)
+        self.connection.setTextFormat(Qt.TextFormat.PlainText)
+        self.connection.setWordWrap(True)
+        self.connection.hide()
+        self.toast_timer = QTimer(self)
+        self.toast_timer.setSingleShot(True)
+        self.toast_timer.timeout.connect(self.connection.hide)
+        self.activity = QLabel(self)
+        self.activity.hide()
         central_layout.addWidget(self.stack, 1)
         self.setCentralWidget(central)
         self.login = LoginView()
@@ -574,12 +635,17 @@ class MainWindow(QMainWindow):
         self.identity.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         top.addWidget(self.identity, 1)
         self.menu_button = QToolButton()
-        self.menu_button.setText("☰  Меню")
+        self.menu_button.setText("Меню")
+        self.menu_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.menu_button.setIconSize(QSize(18, 18))
+        self.refresh_menu_icon()
         self.menu_button.setAccessibleName("Открыть меню программы")
         self.menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         navigation = QMenu(self.menu_button)
         self.home = navigation.addAction("Главное меню")
         self.preferences_action = navigation.addAction("Настройки программы")
+        self.retry = navigation.addAction("Проверить подключение")
+        self.categories_action = navigation.addAction("Категории задач")
         self.help_button = navigation.addAction("Справка")
         navigation.addSeparator()
         self.logout = navigation.addAction("Выйти из учётной записи")
@@ -600,33 +666,42 @@ class MainWindow(QMainWindow):
         self.reports_button = button("Отчёты и экспорт", menu_layout)
         menu_layout.addStretch()
         self.tasks, self.users, self.reports = TasksView(), UsersView(), ReportsView()
+        self.categories = CategoriesView()
         self.help_page = QWidget()
         help_layout = QVBoxLayout(self.help_page)
         self.help_text = QTextBrowser()
         self.help_text.setOpenExternalLinks(False)
         help_layout.addWidget(self.help_text)
         self.help_back = button("Назад", help_layout)
-        for page in (self.menu, self.tasks, self.users, self.reports, self.help_page):
+        for page in (self.menu, self.tasks, self.users, self.reports, self.categories, self.help_page):
             self.pages.addWidget(page)
-        self.retry.hide()
-        self.stack.currentChanged.connect(lambda _: self.retry.setVisible(self.stack.currentWidget() is self.shell))
         self.login.exit.clicked.connect(self.close)
         self.home.triggered.connect(lambda: self.pages.setCurrentWidget(self.menu))
         self.previous_page = self.menu
         self.help_button.triggered.connect(self.show_help)
         self.help_back.clicked.connect(lambda: self.pages.setCurrentWidget(self.previous_page))
-        help_path = Path(__file__).resolve().parents[1] / "resources/help.html"
-        self.help_text.setHtml(help_path.read_text(encoding="utf-8"))
+        self.help_text.setHtml(resource_text("help.html"))
 
 
     def set_activity(self, text):
         self.activity.setText(text)
+        if text and text not in {"Готово", "Выполняется операция…", "Вход выполнен", "Войдите в учётную запись"}:
+            self.set_connection("info", text)
 
     def set_connection(self, state, message):
         self.connection.setText(message)
         self.connection.setProperty("state", state)
         self.connection.style().unpolish(self.connection)
         self.connection.style().polish(self.connection)
+        self.connection.setFixedWidth(min(640, self.width() - 48))
+        self.connection.adjustSize()
+        self.connection.move((self.width() - self.connection.width()) // 2, 16)
+        self.connection.show()
+        self.connection.raise_()
+        self.toast_timer.start(9000 if state == "error" else 2800)
+
+    def refresh_menu_icon(self):
+        self.menu_button.setIcon(QIcon(str(Path(__file__).resolve().parents[1] / f"resources/menu-{self.preferences.theme}.svg")))
 
     def show_help(self):
         if self.pages.currentWidget() != self.help_page:
@@ -634,6 +709,8 @@ class MainWindow(QMainWindow):
         self.pages.setCurrentWidget(self.help_page)
 
     def set_role(self, user):
+        self.categories_action.setVisible(user.is_admin())
+        self.help_text.setHtml(resource_text("help.html") + resource_text("help-admin.html" if user.is_admin() else "help-user.html"))
         self.identity.setText(f"{user.login} · {LABELS[user.role]}")
         self.identity.setToolTip(f"{user.login} · {LABELS[user.role]}")
         for widget in (*self.tasks.admin_widgets, self.users_button, self.reports.tasks_csv, self.reports.users_csv, self.reports.note):
@@ -644,6 +721,7 @@ class MainWindow(QMainWindow):
         self.tasks.details.clear()
         self.tasks.count.clear()
         self.users.model.clear()
+        self.categories.model.clear()
         self.reports.text.clear()
         self.reports.model.clear()
         self.reports.status.setCurrentIndex(0)

@@ -41,7 +41,7 @@ def test_setup_and_non_superuser_client(postgres, tmp_path, monkeypatch):
                 cursor.execute("CREATE TABLE forbidden(id integer)")
         assert len(UserService(client).get_users(session)) == 1
         with client.transaction() as cursor:
-            cursor.execute("SELECT id FROM categories LIMIT 1")
+            cursor.execute("SELECT id FROM categories WHERE name='Разработка'")
             category_id = cursor.fetchone()["id"]
         tasks = TaskService(client)
         task_id = tasks.create_task(
@@ -53,9 +53,28 @@ def test_setup_and_non_superuser_client(postgres, tmp_path, monkeypatch):
         tasks.change_status(session, task_id, TaskStatus.IN_PROGRESS)
         tasks.change_status(session, task_id, TaskStatus.COMPLETED)
         assert tasks.get_selected(session, [task_id]).tasks[0].status == TaskStatus.COMPLETED
+        # Simulate a 1.1 database and upgrade it twice without losing records.
+        import update_database
+        owner = psycopg2.connect(host=cfg.host, port=cfg.port, user=cfg.user, password=cfg.password, dbname=dbname)
+        try:
+            with owner:
+                with owner.cursor() as cursor:
+                    cursor.execute(sql.SQL("REVOKE INSERT,UPDATE ON categories FROM {}").format(sql.Identifier(role)))
+                    cursor.execute("UPDATE categories SET name='Обслуживание' WHERE id=%s", (category_id,))
+            with pytest.raises(AppError, match="UPDATE_DATABASE"):
+                tasks.save_category(session, "Новая категория")
+            update_database.upgrade(owner, role)
+            update_database.upgrade(owner, role)
+        finally:
+            owner.close()
+        assert tasks.get_selected(session, [task_id]).tasks[0].category == "Разработка"
+        new_category = tasks.save_category(session, "Проверка категорий")
+        tasks.save_category(session, "Проверка переименования", new_category)
+        assert AuthService(UserService(client)).authenticate("firstadmin", "Admin-Test!")[0] == session
+
         with client.transaction() as cursor:
             cursor.execute("SELECT has_table_privilege(current_user, 'categories', 'UPDATE') AS allowed")
-            assert not cursor.fetchone()["allowed"]
+            assert cursor.fetchone()["allowed"]
     finally:
         connection = psycopg2.connect(host=cfg.host, port=cfg.port, user=cfg.user, password=cfg.password, dbname="postgres")
         try:

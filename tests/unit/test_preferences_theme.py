@@ -45,7 +45,8 @@ def test_theme_applies_to_dialogs_popups_and_identity(qtbot, theme):
                 backdrop = window.palette().color(group, QPalette.ColorRole.Window)
             assert contrast(widget.palette().color(group, foreground), backdrop) >= 4.5
     assert "Слава" in window.identity.text() and "Администратор" in window.identity.text()
-    assert len(window.menu_button.menu().actions()) == 6
+    assert window.retry in window.menu_button.menu().actions()
+    assert window.categories_action.isVisible()
     dialog.role.hidePopup()
     dialog.reject()
     window.close_pending = True

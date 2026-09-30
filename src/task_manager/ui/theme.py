@@ -27,6 +27,7 @@ def apply_theme(preferences):
     resources = Path(__file__).resolve().parents[1] / "resources"
     check = (resources / "check.svg").as_posix()
     arrow = (resources / f"arrow-{preferences.theme}.svg").as_posix()
+    up = (resources / f"up-{preferences.theme}.svg").as_posix()
     palette = QPalette()
     roles = {"Window": "bg", "WindowText": "text", "Base": "surface", "AlternateBase": "alternate",
              "Text": "text", "Button": "surface", "ButtonText": "text", "ToolTipBase": "surface",
@@ -61,6 +62,10 @@ def apply_theme(preferences):
         QPushButton#primary:hover:enabled {{ background: #316ccc; }}
         QLineEdit, QComboBox, QDateEdit, QSpinBox {{ padding: 6px; min-height: 20px;
             border: 1px solid {c['border']}; border-radius: 5px; background: {c['surface']}; color: {c['text']}; }}
+        QSpinBox::up-button {{ subcontrol-origin: border; subcontrol-position: top right; width: 20px; border: none; }}
+        QSpinBox::down-button {{ subcontrol-origin: border; subcontrol-position: bottom right; width: 20px; border: none; }}
+        QSpinBox::up-arrow {{ image: url("{up}"); width: 12px; height: 12px; }}
+        QSpinBox::down-arrow {{ image: url("{arrow}"); width: 12px; height: 12px; }}
         QComboBox {{ padding-right: 24px; }}
         QComboBox::drop-down, QDateEdit::drop-down {{ width: 22px; border: none; }}
         QComboBox::down-arrow, QDateEdit::down-arrow {{ image: url("{arrow}"); width: 12px; height: 12px; }}

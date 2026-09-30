@@ -2,14 +2,13 @@
 
 from PySide6.QtCore import QDate, QObject, QThreadPool, Qt, Slot
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
-from pathlib import Path
 from datetime import datetime
 
 from ..config import DatabaseConfig
 from ..database import Database
 from ..domain import AccessError, AppError, DatabaseError, SessionExpired, TaskQuery, TaskStatus
 from ..services import AuthService, ReportService, TaskService, UserService
-from .views import PreferencesDialog, SettingsDialog, TaskDialog, UserDialog
+from .views import CategoryDialog, PreferencesDialog, SettingsDialog, TaskDialog, UserDialog
 from .theme import apply_theme
 from .workers import Worker
 
@@ -47,7 +46,7 @@ class Presenter(QObject):
         w.login.preferences.clicked.connect(self.preferences)
         w.preferences_action.triggered.connect(self.preferences)
         w.login.retry.clicked.connect(self.reconnect)
-        w.retry.clicked.connect(self.reconnect)
+        w.retry.triggered.connect(self.reconnect)
         w.logout.triggered.connect(self.logout)
         w.tasks_button.clicked.connect(self.load_tasks)
         w.users_button.clicked.connect(self.load_users)
@@ -72,7 +71,10 @@ class Presenter(QObject):
         w.reports.refresh.clicked.connect(self.open_reports)
         w.reports.week.clicked.connect(self.report_week)
         w.reports.copy.clicked.connect(self.copy_report)
-        w.reports.save.clicked.connect(self.save_report)
+        w.categories_action.triggered.connect(self.load_categories)
+        w.categories.refresh.clicked.connect(self.load_categories)
+        w.categories.create.clicked.connect(lambda: self.edit_category(False))
+        w.categories.rename.clicked.connect(lambda: self.edit_category(True))
         w.reports.tasks_csv.clicked.connect(lambda: self.export_csv("tasks"))
         w.reports.users_csv.clicked.connect(lambda: self.export_csv("users"))
 
@@ -82,7 +84,8 @@ class Presenter(QObject):
             self.window.set_connection("error", "Проверка подключения не пройдена")
         if isinstance(error, DatabaseError):
             self.window.set_connection("error", "Ошибка подключения")
-        self.window.set_activity(str(error))
+        self.window.activity.setText(str(error))
+        self.window.set_connection("error", str(error))
         QMessageBox.warning(self.dialog if self.dialog and self.dialog.isVisible() else self.window, "Менеджер задач", str(error))
 
     def run(self, operation, callback, *, protected=True):
@@ -198,6 +201,7 @@ class Presenter(QObject):
                 values.save()
                 self.window.preferences = values
                 apply_theme(values)
+                self.window.refresh_menu_icon()
                 self.window.tasks.table.viewport().update()
                 self.window.reports.table.viewport().update()
                 dialog.accept()
@@ -231,7 +235,7 @@ class Presenter(QObject):
         def success(_):
             self.connection_check = False
             self.window.set_connection("ok", f"Соединение исправно · {datetime.now():%H:%M}")
-            self.window.set_activity("Проверка завершена: сервер и таблицы доступны. Можно продолжать работу.")
+            self.window.activity.setText("Проверка завершена: сервер и таблицы доступны.")
 
         self.run(self.database.ping, success, protected=self.session is not None)
 
@@ -280,7 +284,7 @@ class Presenter(QObject):
             if query.date_from:
                 conditions.append(f"срок: {query.date_from:%d.%m.%Y} — {query.date_to:%d.%m.%Y}")
             self.window.tasks.active_filters.setText("Условия: " + ("; ".join(conditions) if conditions else "все доступные задачи"))
-            self.window.tasks.count.setText(f"Найдено задач: {len(result.tasks)} · Дата сервера: {result.today:%d.%m.%Y}" if result.tasks else "По заданным условиям доступных задач нет.")
+            self.window.tasks.count.setText(f"Найдено задач: {len(result.tasks)} · Сегодня: {result.today:%d.%m.%Y}" if result.tasks else "По заданным условиям доступных задач нет.")
             self.window.pages.setCurrentWidget(self.window.tasks)
             self.window.tasks.update_details()
 
@@ -299,6 +303,26 @@ class Presenter(QObject):
             self.window.pages.setCurrentWidget(self.window.users)
 
         self.run(lambda: self.users.get_users(session), success)
+
+    def load_categories(self):
+        session = self.session
+        def ready(categories):
+            self.window.categories.model.replace([[c.name] for c in categories], categories)
+            self.window.pages.setCurrentWidget(self.window.categories)
+        self.run(lambda: self.tasks.get_categories(session), ready)
+
+    def edit_category(self, editing):
+        category = self.window.categories.selected() if editing else None
+        if editing and category is None:
+            self.error(AppError("Выберите категорию для переименования."))
+            return
+        session = self.session
+        dialog = CategoryDialog(self.window, category)
+        def save():
+            name = dialog.name.text()
+            self.run(lambda: self.tasks.save_category(session, name, category.id if category else None),
+                     lambda _: self.saved_dialog(dialog, self.load_categories))
+        self.show_dialog(dialog, save)
 
     def one_task(self):
         tasks = self.window.tasks.selected()
@@ -434,6 +458,8 @@ class Presenter(QObject):
                 if task.id in ids:
                     view.table.selectionModel().select(view.model.index(row, 0),
                         QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows)
+            period = f"Срок: {query.date_from:%d.%m.%Y} — {query.date_to:%d.%m.%Y}, обе даты включены" if query.date_from else "Период не ограничен"
+            view.active_filters.setText(f"{period} · Найдено задач: {len(result.tasks)}")
             view.update_selection()
             view.tabs.setCurrentIndex(0)
             self.window.pages.setCurrentWidget(view)
@@ -484,19 +510,6 @@ class Presenter(QObject):
             return
         QApplication.clipboard().setText(report)
         self.window.set_activity("Отчёт скопирован. Его можно вставить в документ или письмо.")
-
-    def save_report(self):
-        report = self.window.reports.text.toPlainText()
-        if not report:
-            self.error(AppError("Сначала сформируйте отчёт."))
-            return
-        path, _ = QFileDialog.getSaveFileName(self.window, "Сохранить отчёт", "report.txt", "Текст (*.txt)")
-        if path:
-            try:
-                Path(path).write_text(report, encoding="utf-8-sig")
-                self.window.set_activity("Отчёт сохранён")
-            except OSError:
-                self.error(AppError("Не удалось сохранить отчёт. Проверьте доступ к папке."))
 
     def export_csv(self, kind):
         path, _ = QFileDialog.getSaveFileName(self.window, "Сохранить CSV", "tasks.csv" if kind == "tasks" else "users.csv", "CSV (*.csv)")

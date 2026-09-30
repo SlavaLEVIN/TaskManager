@@ -10,12 +10,13 @@ from common import ROOT
 from task_manager.domain import Category, Priority, Role, Task, TaskList, TaskStatus, User
 from task_manager.preferences import Preferences
 from task_manager.ui.theme import apply_theme
-from task_manager.ui.views import MainWindow, PreferencesDialog, TaskDialog, UserDialog
+from task_manager.ui.views import MainWindow, PreferencesDialog, SettingsDialog, TaskDialog, UserDialog
+from task_manager.config import DatabaseConfig
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output", default="docs/screenshots/v1.1")
+    parser.add_argument("--output", default="docs/screenshots/v1.2")
     args = parser.parse_args()
     destination = Path(args.output)
     destination.mkdir(parents=True, exist_ok=True)
@@ -23,10 +24,10 @@ def main():
     QLocale.setDefault(QLocale(QLocale.Language.Russian, QLocale.Country.Russia))
     today = date(2026, 9, 30)
     users = [User(1, "admin", Role.ADMIN), User(2, "slava", Role.USER)]
-    categories = [Category(1, "Документация"), Category(2, "Организационные")]
+    categories = [Category(1, "Документация"), Category(2, "Организация работы")]
     tasks = [Task(1, "Подготовить пояснительную записку", "Проверить структуру, оформить рисунки и список источников.", 2, 1, today + timedelta(days=2), Priority.HIGH, TaskStatus.NEW, "slava", "Документация"),
-             Task(2, "Проверить совместную работу в сети", "Проверка на двух компьютерах Windows.", 2, 2, today, Priority.MEDIUM, TaskStatus.IN_PROGRESS, "slava", "Организационные"),
-             Task(3, "Согласовать план проекта", "План согласован с руководителем.", 1, 2, today - timedelta(days=2), Priority.LOW, TaskStatus.COMPLETED, "admin", "Организационные"),
+             Task(2, "Проверить совместную работу в сети", "Проверка на двух компьютерах Windows.", 2, 2, today, Priority.MEDIUM, TaskStatus.IN_PROGRESS, "slava", "Организация работы"),
+             Task(3, "Согласовать план проекта", "План согласован с руководителем.", 1, 2, today - timedelta(days=2), Priority.LOW, TaskStatus.COMPLETED, "admin", "Организация работы"),
              Task(4, "Оформить техническое задание", "Уточнить требования и критерии приёмки.", 2, 1, today - timedelta(days=1), Priority.HIGH, TaskStatus.NEW, "slava", "Документация")]
     result = TaskList(tasks, today, users[0])
     window = MainWindow()
@@ -46,9 +47,10 @@ def main():
         capture(window, "login")
         window.stack.setCurrentWidget(window.shell)
         window.set_role(users[0])
-        window.set_connection("ok", "Соединение исправно · 14:30")
+        window.connection.hide()
+        window.refresh_menu_icon()
         window.tasks.model.set_tasks(result)
-        window.tasks.count.setText("Найдено задач: 4 · Дата сервера: 30.09.2026")
+        window.tasks.count.setText("Найдено задач: 4 · Сегодня: 30.09.2026")
         window.tasks.table.selectRow(1)
         window.pages.setCurrentWidget(window.tasks)
         capture(window, "tasks")
@@ -77,6 +79,12 @@ def main():
         preferences_dialog.show()
         capture(preferences_dialog, "settings")
         preferences_dialog.close()
+        connection_dialog = SettingsDialog(DatabaseConfig(), window)
+        connection_dialog.show()
+        capture(connection_dialog, "connection-settings")
+        connection_dialog.close()
+        window.show_help()
+        capture(window, "help-admin")
         window.reports.model.set_tasks(result)
         window.reports.table.selectAll()
         window.pages.setCurrentWidget(window.reports)

@@ -39,7 +39,7 @@ ALTER DATABASE task_manager SET timezone TO 'Europe/Moscow';
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT USAGE ON SCHEMA public TO task_client;
 GRANT SELECT, INSERT, UPDATE, DELETE ON users, tasks TO task_client;
-GRANT SELECT ON categories TO task_client;
+GRANT SELECT,INSERT,UPDATE ON categories TO task_client;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO task_client;
 REVOKE ALL ON DATABASE task_manager FROM PUBLIC;
 GRANT CONNECT ON DATABASE task_manager TO task_client;

@@ -12,6 +12,8 @@ def test_ui_to_database_and_role_change(qtbot, env, monkeypatch):
     messages = []
     monkeypatch.setattr(QMessageBox, "warning", lambda parent, title, text: messages.append(text))
     window = MainWindow()
+    from dataclasses import replace
+    window.preferences = replace(window.preferences, confirm_exit=False)
     presenter = Presenter(window, env.db)
     qtbot.addWidget(window)
     window.show()
@@ -59,7 +61,7 @@ def test_ui_to_database_and_role_change(qtbot, env, monkeypatch):
     assert "Новая: 1" in window.reports.text.toPlainText()
     assert "Выполнена: 1" in window.reports.text.toPlainText()
     current_page = window.pages.currentWidget()
-    window.retry.click()
+    window.retry.trigger()
     wait()
     assert window.pages.currentWidget() is current_page
     assert window.connection.property("state") == "ok"
