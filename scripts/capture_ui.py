@@ -3,8 +3,8 @@ import argparse
 from datetime import date, timedelta
 from pathlib import Path
 
-from PySide6.QtCore import QPoint
-from PySide6.QtWidgets import QApplication, QDialogButtonBox, QMessageBox
+from PySide6.QtCore import QPoint, QLocale
+from PySide6.QtWidgets import QApplication
 
 from common import ROOT
 from task_manager.domain import Category, Priority, Role, Task, TaskList, TaskStatus, User
@@ -20,6 +20,7 @@ def main():
     destination = Path(args.output)
     destination.mkdir(parents=True, exist_ok=True)
     app = QApplication([])
+    QLocale.setDefault(QLocale(QLocale.Language.Russian, QLocale.Country.Russia))
     today = date(2026, 9, 30)
     users = [User(1, "admin", Role.ADMIN), User(2, "slava", Role.USER)]
     categories = [Category(1, "Документация"), Category(2, "Организационные")]
@@ -30,6 +31,7 @@ def main():
     result = TaskList(tasks, today, users[0])
     window = MainWindow()
     window.show()
+    assert window.fontMetrics().inFontUcs4(ord("М")), "Russian font glyphs are unavailable in the rendering environment"
 
     def capture(widget, name):
         app.processEvents()
