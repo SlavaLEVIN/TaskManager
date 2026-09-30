@@ -25,14 +25,24 @@ jobs:
       - name: Smoke test packaged application
         shell: pwsh
         run: |
-          $appProcess = Start-Process -FilePath 'dist\TaskManager.exe' -PassThru
-          Start-Sleep -Seconds 12
-          if ($appProcess.HasExited) { throw "TaskManager exited during startup: $($appProcess.ExitCode)" }
-          $appProcess.Refresh()
-          if ($appProcess.MainWindowTitle -ne 'Менеджер задач') { throw "Expected TaskManager main window, got: $($appProcess.MainWindowTitle)" }
-          Write-Output "TaskManager main window opened successfully"
-          Stop-Process -Id $appProcess.Id
+          $exePath = (Resolve-Path 'dist\TaskManager.exe').Path
+          $appProcess = Start-Process -FilePath $exePath -PassThru
+          try {
+            $opened = $false
+            for ($attempt = 0; $attempt -lt 30; $attempt++) {
+              Start-Sleep -Seconds 1
+              $appProcess.Refresh()
+              if ($appProcess.HasExited) { throw "TaskManager exited during startup: $($appProcess.ExitCode)" }
+              $windows = Get-Process -Name TaskManager -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exePath -and $_.MainWindowTitle -eq 'Менеджер задач' }
+              if ($windows) { $opened = $true; break }
+            }
+            if (-not $opened) { throw "TaskManager main window did not open within 30 seconds" }
+            Write-Output "TaskManager main window opened successfully"
+          } finally {
+            taskkill /PID $appProcess.Id /T /F
+          }
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: TaskManager-Windows-x64
           path: |
