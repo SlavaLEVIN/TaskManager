@@ -62,14 +62,18 @@ def test_exit_cancel_preserves_unsaved_form(qtbot):
 
 def test_large_report_selection_does_not_expand_window(qtbot):
     window = MainWindow()
+    window.close_pending = True
     qtbot.addWidget(window)
     window.stack.setCurrentWidget(window.shell)
     window.pages.setCurrentWidget(window.reports)
+    window.show()
+    qtbot.wait(50)
+    initial_height = window.height()
     text = "\n".join(f"№{i} <b>Задача {i}</b>" for i in range(1000))
     window.reports.selection.setPlainText(text)
     window.show()
     qtbot.wait(20)
-    assert window.height() == 800
+    assert window.height() == initial_height
     assert window.reports.selection.verticalScrollBar().maximum() > 0
     assert "<b>" in window.reports.selection.toPlainText()
     window.close_pending = True
