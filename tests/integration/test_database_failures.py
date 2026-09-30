@@ -42,10 +42,14 @@ def test_gui_connection_error_can_recover(qtbot, env, monkeypatch):
     window.show()
     window.login.retry.click()
     qtbot.waitUntil(lambda: not window.busy, timeout=10000)
+    assert window.connection.property("state") == "error"
     assert messages and window.isVisible() and window.login.enter.isEnabled()
     presenter._services(env.db)
     window.login.retry.click()
     qtbot.waitUntil(lambda: not window.busy, timeout=10000)
-    assert window.statusBar().currentMessage() == "Подключение восстановлено"
+    assert window.connection.property("state") == "ok"
+    assert "Соединение исправно" in window.connection.text()
+    assert "Проверка завершена" in window.activity.text()
+    assert window.stack.currentWidget() is window.login
     window.close_pending = True
     window.close()

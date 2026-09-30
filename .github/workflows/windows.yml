@@ -12,14 +12,28 @@ jobs:
           python-version: '3.13.8'
           architecture: x64
       - run: python -m pip install -r requirements-dev.txt
-      - run: python -m pytest tests/unit -q
+      - run: python -m pytest tests/unit -q --junitxml=windows-unit-tests.xml
+        env:
+          QT_QPA_PLATFORM: offscreen
+      - name: Capture light and dark interface on Windows
+        run: python scripts/capture_ui.py --output windows-screenshots
         env:
           QT_QPA_PLATFORM: offscreen
       - run: python -m PyInstaller --clean --noconfirm packaging/task_manager.spec
+      - name: Smoke test packaged application
+        shell: pwsh
+        run: |
+          $appProcess = Start-Process -FilePath 'dist\TaskManager.exe' -PassThru
+          Start-Sleep -Seconds 12
+          if ($appProcess.HasExited) { throw "TaskManager exited during startup: $($appProcess.ExitCode)" }
+          Stop-Process -Id $appProcess.Id
       - uses: actions/upload-artifact@v4
         with:
           name: TaskManager-Windows-x64
           path: |
             dist/TaskManager.exe
+            windows-unit-tests.xml
+            windows-screenshots/
             config/database.example.ini
             START_HERE_WINDOWS.md
+            docs/UPDATE_1.1.md

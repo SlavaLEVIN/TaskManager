@@ -1,13 +1,16 @@
 """Связь представлений, сессии и сервисов; все запросы выполняются вне GUI-потока."""
 
-from PySide6.QtCore import QObject, QThreadPool, Qt, Slot
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtCore import QDate, QObject, QThreadPool, Qt, Slot
+from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
+from pathlib import Path
+from datetime import datetime
 
 from ..config import DatabaseConfig
 from ..database import Database
-from ..domain import AccessError, AppError, SessionExpired, TaskQuery
+from ..domain import AccessError, AppError, DatabaseError, SessionExpired, TaskQuery, TaskStatus
 from ..services import AuthService, ReportService, TaskService, UserService
-from .views import SettingsDialog, TaskDialog, UserDialog
+from .views import PreferencesDialog, SettingsDialog, TaskDialog, UserDialog
+from .theme import apply_theme
 from .workers import Worker
 
 
@@ -24,6 +27,7 @@ class Presenter(QObject):
         self.worker = None
         self.dialog = None
         self.callback = None
+        self.connection_check = False
         self._services(database)
         self._connect()
 
@@ -40,9 +44,11 @@ class Presenter(QObject):
         w.login.password.returnPressed.connect(self.login)
         w.login.login.returnPressed.connect(self.login)
         w.login.settings.clicked.connect(self.settings)
+        w.login.preferences.clicked.connect(self.preferences)
+        w.preferences_action.triggered.connect(self.preferences)
         w.login.retry.clicked.connect(self.reconnect)
         w.retry.clicked.connect(self.reconnect)
-        w.logout.clicked.connect(self.logout)
+        w.logout.triggered.connect(self.logout)
         w.tasks_button.clicked.connect(self.load_tasks)
         w.users_button.clicked.connect(self.load_users)
         w.reports_button.clicked.connect(self.open_reports)
@@ -54,6 +60,7 @@ class Presenter(QObject):
         w.tasks.edit.clicked.connect(lambda: self.edit_task(True))
         w.tasks.delete.clicked.connect(self.delete_task)
         w.tasks.change.clicked.connect(self.change_status)
+        w.tasks.complete.clicked.connect(lambda: self.change_status(target=TaskStatus.COMPLETED))
         w.tasks.report.clicked.connect(self.select_report)
         w.users.create.clicked.connect(lambda: self.edit_user("create"))
         w.users.edit.clicked.connect(lambda: self.edit_user("edit"))
@@ -62,10 +69,20 @@ class Presenter(QObject):
         w.users.tasks.clicked.connect(self.user_tasks)
         w.users.refresh.clicked.connect(self.load_users)
         w.reports.generate.clicked.connect(self.generate_report)
+        w.reports.refresh.clicked.connect(self.open_reports)
+        w.reports.week.clicked.connect(self.report_week)
+        w.reports.copy.clicked.connect(self.copy_report)
+        w.reports.save.clicked.connect(self.save_report)
         w.reports.tasks_csv.clicked.connect(lambda: self.export_csv("tasks"))
         w.reports.users_csv.clicked.connect(lambda: self.export_csv("users"))
 
     def error(self, error):
+        if self.connection_check:
+            self.connection_check = False
+            self.window.set_connection("error", "Проверка подключения не пройдена")
+        if isinstance(error, DatabaseError):
+            self.window.set_connection("error", "Ошибка подключения")
+        self.window.set_activity(str(error))
         QMessageBox.warning(self.dialog if self.dialog and self.dialog.isVisible() else self.window, "Менеджер задач", str(error))
 
     def run(self, operation, callback, *, protected=True):
@@ -85,11 +102,11 @@ class Presenter(QObject):
             return before, after, result, error
 
         self.window.busy = True
-        self.window.centralWidget().setEnabled(False)
+        self.window.setCursor(Qt.CursorShape.WaitCursor)
         self.window.retry.setEnabled(False)
         if self.dialog:
             self.dialog.set_busy(True)
-        self.window.statusBar().showMessage("Выполняется операция…")
+        self.window.set_activity("Выполняется операция…")
         self.callback = callback
         self.worker = Worker(wrapped)
         self.worker.signals.done.connect(self.finished)
@@ -98,11 +115,11 @@ class Presenter(QObject):
     @Slot(object, object)
     def finished(self, payload, failure):
         self.window.busy = False
-        self.window.centralWidget().setEnabled(True)
+        self.window.unsetCursor()
         self.window.retry.setEnabled(True)
         if self.dialog:
             self.dialog.set_busy(False)
-        self.window.statusBar().showMessage("Готово")
+        self.window.set_activity("Готово")
         callback, self.callback = self.callback, None
         self.worker = None
         if self.window.close_pending:
@@ -128,7 +145,7 @@ class Presenter(QObject):
             self.window.pages.setCurrentWidget(self.window.menu)
             if self.dialog:
                 self.dialog.reject()
-            self.window.statusBar().showMessage("Права изменены. Данные очищены; откройте нужный раздел заново.")
+            self.window.set_activity("Права изменены. Данные очищены; откройте нужный раздел заново.")
             if error:
                 self.error(error)
             return
@@ -150,7 +167,10 @@ class Presenter(QObject):
         self.window.set_role(self.user)
         self.window.pages.setCurrentWidget(self.window.menu)
         self.window.stack.setCurrentWidget(self.window.shell)
-        self.window.statusBar().showMessage("Вход выполнен")
+        self.window.set_connection("ok", "Подключено к базе")
+        if self.window.preferences.start_page == "tasks":
+            self.load_tasks()
+        self.window.set_activity("Вход выполнен")
 
     def logout(self):
         if self.window.busy:
@@ -165,7 +185,27 @@ class Presenter(QObject):
         self.window.login.login.clear()
         self.window.stack.setCurrentWidget(self.window.login)
         self.window.login.login.setFocus()
-        self.window.statusBar().showMessage("Войдите в учётную запись")
+        self.window.set_activity("Войдите в учётную запись")
+
+    def preferences(self):
+        if self.window.busy or self.dialog:
+            return
+        dialog = PreferencesDialog(self.window.preferences, self.window)
+
+        def save():
+            try:
+                values = dialog.values()
+                values.save()
+                self.window.preferences = values
+                apply_theme(values)
+                self.window.tasks.table.viewport().update()
+                self.window.reports.table.viewport().update()
+                dialog.accept()
+                self.window.set_activity("Настройки программы сохранены")
+            except AppError as error:
+                self.error(error)
+
+        self.show_dialog(dialog, save)
 
     def settings(self):
         dialog = SettingsDialog(self.database.config, self.window)
@@ -176,17 +216,23 @@ class Presenter(QObject):
                 config.save()
                 self._services(Database(config))
                 dialog.accept()
-                self.window.statusBar().showMessage("Настройки сохранены. Нажмите «Повторить подключение».")
+                self.window.set_activity("Настройки сохранены. Нажмите «Повторить подключение».")
             except AppError as error:
                 self.error(error)
 
         self.show_dialog(dialog, save)
 
     def reconnect(self):
+        if self.window.busy:
+            return
+        self.connection_check = True
+        self.window.set_connection("checking", "Проверка подключения…")
+
         def success(_):
-            self.window.statusBar().showMessage("Подключение восстановлено")
-            if self.session:
-                self.load_tasks()
+            self.connection_check = False
+            self.window.set_connection("ok", f"Соединение исправно · {datetime.now():%H:%M}")
+            self.window.set_activity("Проверка завершена: сервер и таблицы доступны. Можно продолжать работу.")
+
         self.run(self.database.ping, success, protected=self.session is not None)
 
     @staticmethod
@@ -200,6 +246,7 @@ class Presenter(QObject):
         widget.setCurrentIndex(index if index >= 0 else 0)
 
     def load_tasks(self):
+        selected_ids = {task.id for task in self.window.tasks.selected()}
         session, query = self.session, self.window.tasks.query()
         try:
             query.validate()
@@ -217,6 +264,11 @@ class Presenter(QObject):
             result, categories, users = data
             self.last_query = query
             self.window.tasks.model.set_tasks(result)
+            from PySide6.QtCore import QItemSelectionModel
+            for row, task in enumerate(result.tasks):
+                if task.id in selected_ids:
+                    self.window.tasks.table.selectionModel().select(self.window.tasks.model.index(row, 0),
+                        QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows)
             self.fill_options(self.window.tasks.category, categories, "Все категории", "name")
             self.fill_options(self.window.tasks.assignee, users, "Все исполнители", "login")
             conditions = []
@@ -319,9 +371,9 @@ class Presenter(QObject):
             session = self.session
             self.run(lambda: self.tasks.delete_task(session, task.id), lambda _: self.load_tasks())
 
-    def change_status(self):
+    def change_status(self, checked=False, target=None):
         task = self.one_task()
-        status, session = self.window.tasks.new_status.currentData(), self.session
+        status, session = target or self.window.tasks.new_status.currentData(), self.session
         if task and status:
             self.run(lambda: self.tasks.change_status(session, task.id, status), lambda _: self.load_tasks())
 
@@ -364,29 +416,87 @@ class Presenter(QObject):
 
         self.run(lambda: self.users.get_users(session), ready)
 
-    def open_reports(self):
+    def open_reports(self, checked=False, selected_ids=None, generate=False):
+        view = self.window.reports
         session = self.session
-        self.run(lambda: self.users.get_current(session), lambda _: self.window.pages.setCurrentWidget(self.window.reports))
+        ids = set(view.selected_ids() if selected_ids is None else selected_ids)
+        query = view.query()
+        try:
+            query.validate()
+        except AppError as error:
+            self.error(error)
+            return
+
+        def ready(result):
+            from PySide6.QtCore import QItemSelectionModel
+            view.model.set_tasks(result)
+            for row, task in enumerate(result.tasks):
+                if task.id in ids:
+                    view.table.selectionModel().select(view.model.index(row, 0),
+                        QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows)
+            view.update_selection()
+            view.tabs.setCurrentIndex(0)
+            self.window.pages.setCurrentWidget(view)
+            if generate:
+                self.generate_report()
+
+        self.run(lambda: self.tasks.get_tasks(session, query), ready)
+
+    def report_week(self):
+        # Период рассчитывается от даты сервера, а не часов рабочей станции.
+        session = self.session
+        def ready(result):
+            today = QDate(result.today.year, result.today.month, result.today.day)
+            monday = today.addDays(1 - today.dayOfWeek())
+            self.window.reports.date_enabled.setChecked(True)
+            self.window.reports.date_from.setDate(monday)
+            self.window.reports.date_to.setDate(monday.addDays(6))
+            self.open_reports()
+        self.run(lambda: self.tasks.get_tasks(session), ready)
 
     def select_report(self):
         tasks = self.window.tasks.selected()
         if not tasks:
             self.error(AppError("Выберите хотя бы одну задачу."))
             return
-        self.report_ids = [task.id for task in tasks]
-        self.window.reports.selection.setPlainText(f"Выбрано задач: {len(tasks)}\n" + "\n".join(f"№{t.id} {t.title}" for t in tasks))
-        self.window.reports.text.clear()
-        self.generate_report()
+        self.window.reports.status.setCurrentIndex(0)
+        self.window.reports.date_enabled.setChecked(False)
+        self.open_reports(selected_ids=[task.id for task in tasks], generate=True)
 
     def generate_report(self):
-        session, ids = self.session, list(self.report_ids)
+        session, ids = self.session, self.window.reports.selected_ids()
         self.window.reports.text.clear()
+        if not ids:
+            self.error(AppError("Выберите задачи на вкладке «Выбор задач»."))
+            return
 
         def success(report):
             self.window.reports.text.setPlainText(report)
+            self.window.reports.tabs.setCurrentIndex(1)
             self.window.pages.setCurrentWidget(self.window.reports)
 
         self.run(lambda: self.reports.create_summary(session, ids), success)
+
+    def copy_report(self):
+        report = self.window.reports.text.toPlainText()
+        if not report:
+            self.error(AppError("Сначала сформируйте отчёт."))
+            return
+        QApplication.clipboard().setText(report)
+        self.window.set_activity("Отчёт скопирован. Его можно вставить в документ или письмо.")
+
+    def save_report(self):
+        report = self.window.reports.text.toPlainText()
+        if not report:
+            self.error(AppError("Сначала сформируйте отчёт."))
+            return
+        path, _ = QFileDialog.getSaveFileName(self.window, "Сохранить отчёт", "report.txt", "Текст (*.txt)")
+        if path:
+            try:
+                Path(path).write_text(report, encoding="utf-8-sig")
+                self.window.set_activity("Отчёт сохранён")
+            except OSError:
+                self.error(AppError("Не удалось сохранить отчёт. Проверьте доступ к папке."))
 
     def export_csv(self, kind):
         path, _ = QFileDialog.getSaveFileName(self.window, "Сохранить CSV", "tasks.csv" if kind == "tasks" else "users.csv", "CSV (*.csv)")
@@ -396,4 +506,4 @@ class Presenter(QObject):
             path += ".csv"
         session, query = self.session, self.last_query
         operation = (lambda: self.reports.export_tasks(session, query, path)) if kind == "tasks" else (lambda: self.reports.export_users(session, path))
-        self.run(operation, lambda _: self.window.statusBar().showMessage(f"CSV сохранён: {path}"))
+        self.run(operation, lambda _: self.window.set_activity(f"CSV сохранён: {path}"))

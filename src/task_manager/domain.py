@@ -154,11 +154,14 @@ class TaskQuery:
     date_to: date | None = None
     sort: str = "due_date"
     descending: bool = False
+    overdue: bool = False
 
     def validate(self) -> None:
         for value in (self.date_from, self.date_to):
             if value is not None and type(value) is not date:
                 raise AppError("Неверная дата фильтра.")
+        if type(self.overdue) is not bool:
+            raise AppError("Неверное условие просрочки.")
         if self.date_from and self.date_to and self.date_from > self.date_to:
             raise AppError("Начало диапазона не может быть позже конца.")
         if self.status is not None:

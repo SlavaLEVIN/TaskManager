@@ -48,6 +48,8 @@ class Database:
                 raise AppError("Запись связана с задачами или выбранный пользователь/категория уже удалены. Обновите список.") from None
             if isinstance(exc, (psycopg2.errors.CheckViolation, psycopg2.errors.NotNullViolation)):
                 raise AppError("Данные не соответствуют обязательным ограничениям БД.") from None
+            if isinstance(exc, psycopg2.errors.InsufficientPrivilege):
+                raise AppError("Соединение с сервером есть, но техническому пользователю PostgreSQL не хватает прав для этой операции. Обратитесь к администратору и проверьте версию программы.") from None
             if phase == "commit":
                 raise DatabaseError("Связь потеряна при подтверждении записи. Результат неизвестен. Восстановите подключение и обновите список перед повтором.") from None
             raise DatabaseError("База данных недоступна или операция прервана. Проверьте настройки и сервер, затем нажмите «Повторить подключение».") from None

@@ -38,10 +38,33 @@ def test_ui_to_database_and_role_change(qtbot, env, monkeypatch):
     task = env.tasks.get_tasks(env.ivan).tasks[0]
     assert task.title == 'Задача из формы; "Кириллица"' and task.description == "Описание\nиз интерфейса"
     window.tasks.table.selectRow(0)
+    assert not window.tasks.complete.isEnabled()
+    window.tasks.change.click()
+    wait()
+    assert window.tasks.complete.isEnabled()
+    window.tasks.complete.click()
+    wait()
+    assert "Выполнена" in window.tasks.model.rows[0]
     window.tasks.report.click()
     wait()
     assert "Кириллица" in window.reports.text.toPlainText()
-    window.logout.click()
+    assert "Выполнена: 1" in window.reports.text.toPlainText()
+    env.tasks.create_task(env.admin, TaskInput("Новая задача", "", 2, 1, env.today, Priority.LOW))
+    window.reports_button.click()
+    wait()
+    assert window.reports.model.rowCount() == 2
+    window.reports.select_all.click()
+    window.reports.generate.click()
+    wait()
+    assert "Новая: 1" in window.reports.text.toPlainText()
+    assert "Выполнена: 1" in window.reports.text.toPlainText()
+    current_page = window.pages.currentWidget()
+    window.retry.click()
+    wait()
+    assert window.pages.currentWidget() is current_page
+    assert window.connection.property("state") == "ok"
+    assert "Проверка завершена" in window.activity.text()
+    window.logout.trigger()
     assert window.tasks.model.rowCount() == 0 and not window.reports.text.toPlainText()
     window.login.login.setText("ivan")
     window.login.password.setText("Test-Password!")
@@ -49,7 +72,7 @@ def test_ui_to_database_and_role_change(qtbot, env, monkeypatch):
     wait()
     window.tasks_button.click()
     wait()
-    assert window.tasks.model.rowCount() == 1 and window.tasks.create.isHidden()
+    assert window.tasks.model.rowCount() == 2 and window.tasks.create.isHidden()
     env.users.update_user(env.admin, 2, "ivan", Role.ADMIN)
     window.tasks.refresh.click()
     wait()

@@ -159,6 +159,8 @@ class TaskService:
         if query.sort not in SORT_FIELDS:
             raise AppError("Недопустимое поле сортировки.")
         conditions, params = [], []
+        if query.overdue:
+            conditions.append("(t.due_date < CURRENT_DATE AND t.status <> 'COMPLETED')")
         if not user.is_admin():
             conditions.append("t.assignee_id=%s")
             params.append(user.id)
@@ -216,7 +218,8 @@ class TaskService:
         cursor.execute("SELECT id FROM users WHERE id=%s FOR KEY SHARE", (data.assignee_id,))
         if cursor.fetchone() is None:
             raise AppError("Ответственный не существует. Обновите список пользователей.")
-        cursor.execute("SELECT id FROM categories WHERE id=%s FOR KEY SHARE", (data.category_id,))
+        # Внешний ключ защищает ссылку при записи; категории доступны клиенту только для чтения.
+        cursor.execute("SELECT id FROM categories WHERE id=%s", (data.category_id,))
         if cursor.fetchone() is None:
             raise AppError("Категория не существует. Обновите справочник.")
 
@@ -297,6 +300,8 @@ class ReportService:
     def create_summary(self, session: Session, task_ids: list[int]) -> str:
         result = self.task_service.get_selected(session, task_ids)
         lines = ["ОТЧЁТ ПО ЗАДАЧАМ", f"Дата сервера: {result.today:%d.%m.%Y}", f"Количество задач: {len(result.tasks)}", ""]
+        lines.extend(f"{LABELS[status]}: {sum(task.status == status for task in result.tasks)}" for status in TaskStatus)
+        lines.extend(["", "Состояние задач на момент формирования; даты переходов статуса не хранятся.", ""])
         for task in result.tasks:
             lines.extend((f"Задача №{task.id}: {task.title}", f"Ответственный: {task.assignee}",
                           f"Категория: {task.category}", f"Приоритет: {LABELS[task.priority]}",

@@ -215,3 +215,15 @@ def test_concurrent_last_admin_protection(env, delete):
     with env.db.transaction() as cursor:
         cursor.execute("SELECT count(*) AS n FROM users WHERE role='ADMIN'")
         assert cursor.fetchone()["n"] == 1
+
+
+def test_overdue_excludes_completed_today_future_and_other_users(env):
+    late = env.tasks.create_task(env.admin, data(env, due_date=env.today - timedelta(days=1)))
+    done = env.tasks.create_task(env.admin, data(env, due_date=env.today - timedelta(days=2)))
+    env.tasks.change_status(env.admin, done, TaskStatus.IN_PROGRESS)
+    env.tasks.change_status(env.admin, done, TaskStatus.COMPLETED)
+    env.tasks.create_task(env.admin, data(env, due_date=env.today))
+    env.tasks.create_task(env.admin, data(env, due_date=env.today + timedelta(days=1)))
+    other = env.tasks.create_task(env.admin, data(env, assignee_id=3, due_date=env.today - timedelta(days=3)))
+    assert [t.id for t in env.tasks.get_tasks(env.ivan, TaskQuery(overdue=True)).tasks] == [late]
+    assert {t.id for t in env.tasks.get_tasks(env.admin, TaskQuery(overdue=True)).tasks} == {late, other}

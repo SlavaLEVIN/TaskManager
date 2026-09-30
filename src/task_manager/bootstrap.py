@@ -36,7 +36,7 @@ def main() -> int:
     window = MainWindow()
     presenter = Presenter(window, Database(config))
     if configuration_notice:
-        window.statusBar().showMessage(configuration_notice)
+        window.set_activity(configuration_notice)
     window.show()
     result = app.exec()
     presenter.pool.waitForDone()

@@ -1,5 +1,7 @@
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QApplication
+from .theme import COLORS
 
 from ..domain import LABELS, TaskList, TaskStatus
 
@@ -26,7 +28,8 @@ class TableModel(QAbstractTableModel):
         if role in (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.ToolTipRole):
             return str(self.rows[index.row()][index.column()])
         if role == Qt.ItemDataRole.ForegroundRole and self.colors:
-            return QColor(self.colors[index.row()])
+            theme = QApplication.instance().property("taskManagerTheme") or "light"
+            return QColor(COLORS[theme][self.colors[index.row()]])
         return None
 
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
@@ -53,5 +56,5 @@ class TaskTableModel(TableModel):
             late = task.is_overdue(result.today)
             rows.append([task.title, task.assignee, task.category, LABELS[task.priority],
                          task.due_date.strftime("%d.%m.%Y"), LABELS[task.status], "Да" if late else "Нет"])
-            colors.append("#b42318" if late else "#087443" if task.status == TaskStatus.COMPLETED else "#213247")
+            colors.append("danger" if late else "success" if task.status == TaskStatus.COMPLETED else "text")
         self.replace(rows, result.tasks, colors)
