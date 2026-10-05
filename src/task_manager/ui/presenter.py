@@ -6,7 +6,7 @@ from datetime import datetime
 
 from ..config import DatabaseConfig
 from ..database import Database
-from ..domain import AccessError, AppError, DatabaseError, SessionExpired, TaskQuery, TaskStatus
+from ..domain import AccessError, AppError, DatabaseError, LABELS, SessionExpired, TaskQuery, TaskStatus
 from ..services import AuthService, ReportService, TaskService, UserService
 from .views import CategoryDialog, PreferencesDialog, SettingsDialog, TaskDialog, UserDialog
 from .theme import apply_theme
@@ -55,8 +55,7 @@ class Presenter(QObject):
         w.tasks_button.clicked.connect(self.load_tasks)
         w.users_button.clicked.connect(self.load_users)
         w.reports_button.clicked.connect(self.open_reports)
-        for btn in (w.tasks.apply, w.tasks.refresh):
-            btn.clicked.connect(self.load_tasks)
+        w.tasks.apply.clicked.connect(self.load_tasks)
         w.tasks.search.returnPressed.connect(self.load_tasks)
         w.tasks.reset.clicked.connect(self.reset_tasks)
         w.tasks.create.clicked.connect(lambda: self.edit_task(False))
@@ -79,6 +78,7 @@ class Presenter(QObject):
         w.categories.refresh.clicked.connect(self.load_categories)
         w.categories.create.clicked.connect(lambda: self.edit_category(False))
         w.categories.rename.clicked.connect(lambda: self.edit_category(True))
+        w.categories.delete.clicked.connect(self.delete_category)
         w.reports.tasks_csv.clicked.connect(lambda: self.export_csv("tasks"))
         w.reports.users_csv.clicked.connect(lambda: self.export_csv("users"))
 
@@ -113,7 +113,7 @@ class Presenter(QObject):
         if not quiet:
             self.window.setCursor(Qt.CursorShape.WaitCursor)
             self.window.retry.setEnabled(False)
-        if self.dialog:
+        if self.dialog and not quiet:
             self.dialog.set_busy(True)
         if not quiet:
             self.window.set_activity("Выполняется операция…")
@@ -129,7 +129,7 @@ class Presenter(QObject):
         if not was_quiet:
             self.window.unsetCursor()
             self.window.retry.setEnabled(True)
-        if self.dialog:
+        if self.dialog and not was_quiet:
             self.dialog.set_busy(False)
         if not was_quiet:
             self.window.set_activity("Готово")
@@ -227,7 +227,8 @@ class Presenter(QObject):
             self.window.pages.setCurrentWidget(self.window.menu)
             self.window.set_activity("Права изменены. Откройте нужный раздел заново.")
         self.user = user
-        self.window.set_role(user)
+        if self.window.identity.text() != f"{user.login} · {LABELS[user.role]}":
+            self.window.set_role(user)
 
     def preferences(self):
         if self.window.busy or self.dialog:
@@ -362,6 +363,15 @@ class Presenter(QObject):
             self.run(lambda: self.tasks.save_category(session, name, category.id if category else None),
                      lambda _: self.saved_dialog(dialog, self.load_categories))
         self.show_dialog(dialog, save)
+
+    def delete_category(self):
+        category = self.window.categories.selected()
+        if category is None:
+            self.error(AppError("Выберите категорию для удаления."))
+            return
+        if self.confirm("Удаление категории", f"Удалить категорию «{category.name}»? Категорию с задачами удалить нельзя."):
+            session = self.session
+            self.run(lambda: self.tasks.delete_category(session, category.id), lambda _: self.load_categories())
 
     def one_task(self):
         tasks = self.window.tasks.selected()

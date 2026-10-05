@@ -76,7 +76,7 @@ def test_ui_to_database_and_role_change(qtbot, env, monkeypatch):
     wait()
     assert window.tasks.model.rowCount() == 2 and window.tasks.create.isHidden()
     env.users.update_user(env.admin, 2, "ivan", Role.ADMIN)
-    window.tasks.refresh.click()
+    window.tasks.apply.click()
     wait()
     assert window.tasks.model.rowCount() == 0 and not window.tasks.create.isHidden()
     env.users.update_user(env.admin, 2, "ivan", Role.USER)

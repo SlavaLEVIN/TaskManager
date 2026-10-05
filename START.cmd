@@ -1,6 +1,10 @@
 @echo off
 setlocal
 cd /d "%~dp0"
+if exist "TaskManager.exe" (
+  start "" "TaskManager.exe"
+  exit /b 0
+)
 if exist "runtime\pythonw.exe" (
   start "" "runtime\pythonw.exe" "run.py"
   exit /b 0

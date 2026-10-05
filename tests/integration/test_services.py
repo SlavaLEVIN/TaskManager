@@ -15,6 +15,18 @@ def data(env, **kwargs):
     return replace(TaskInput("Проверить документ", "Описание", 2, 1, env.today, Priority.MEDIUM), **kwargs)
 
 
+def test_category_delete_requires_empty_category_and_admin(env):
+    unused = env.tasks.save_category(env.admin, "Неиспользуемая")
+    with pytest.raises(AccessError):
+        env.tasks.delete_category(env.ivan, unused)
+    task_id = env.tasks.create_task(env.admin, data(env, category_id=unused))
+    with pytest.raises(AppError, match="есть задачи"):
+        env.tasks.delete_category(env.admin, unused)
+    env.tasks.update_task(env.admin, task_id, data(env))
+    env.tasks.delete_category(env.admin, unused)
+    assert all(category.id != unused for category in env.tasks.get_categories(env.admin))
+
+
 def test_authentication_and_safe_user(env):
     session, user = env.auth.authenticate(" ADMIN ", "Test-Password!")
     assert session == env.admin and user.is_admin() and user.password_hash == ""

@@ -61,7 +61,7 @@ def main():
                 cursor.execute("REVOKE ALL ON SCHEMA public FROM PUBLIC")
                 cursor.execute(sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(sql.Identifier(technical_user)))
                 cursor.execute(sql.SQL("GRANT SELECT,INSERT,UPDATE,DELETE ON users,tasks TO {}").format(sql.Identifier(technical_user)))
-                cursor.execute(sql.SQL("GRANT SELECT,INSERT,UPDATE ON categories TO {}").format(sql.Identifier(technical_user)))
+                cursor.execute(sql.SQL("GRANT SELECT,INSERT,UPDATE,DELETE ON categories TO {}").format(sql.Identifier(technical_user)))
                 cursor.execute(sql.SQL("GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO {}").format(sql.Identifier(technical_user)))
                 cursor.execute(sql.SQL("REVOKE ALL ON DATABASE {} FROM PUBLIC").format(sql.Identifier(dbname)))
                 cursor.execute(sql.SQL("GRANT CONNECT ON DATABASE {} TO {}").format(sql.Identifier(dbname), sql.Identifier(technical_user)))

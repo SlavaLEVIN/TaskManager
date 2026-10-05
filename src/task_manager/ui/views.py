@@ -165,7 +165,6 @@ class TasksView(QWidget):
         search_row.addWidget(self.search, 1)
         self.apply = button("Применить", search_row)
         self.reset = button("Сбросить", search_row)
-        self.refresh = button("Обновить", search_row)
         layout.addLayout(search_row)
         filters = QGridLayout()
         self.status = combo(TaskStatus, "Все статусы")
@@ -321,12 +320,19 @@ class CategoriesView(QWidget):
         actions = QHBoxLayout()
         self.create = button("Добавить", actions)
         self.rename = button("Переименовать", actions)
+        self.delete = button("Удалить", actions)
         self.refresh = button("Обновить", actions)
         layout.addLayout(actions)
         self.rename.setEnabled(False)
+        self.delete.setEnabled(False)
         self.table.selectionModel().selectionChanged.connect(
-            lambda: self.rename.setEnabled(bool(self.table.selectionModel().selectedRows())))
+            lambda: self.set_selection_actions())
         self.table.doubleClicked.connect(lambda _: self.rename.click())
+
+    def set_selection_actions(self):
+        selected = bool(self.table.selectionModel().selectedRows())
+        self.rename.setEnabled(selected)
+        self.delete.setEnabled(selected)
 
     def selected(self):
         rows = self.table.selectionModel().selectedRows()
@@ -355,6 +361,7 @@ class ReportsView(QWidget):
         self.date_enabled = QCheckBox("Дедлайн")
         self.date_from, self.date_to = calendar(), calendar()
         for field in (self.date_from, self.date_to):
+            field.setFixedWidth(180)
             field.setEnabled(False)
             self.date_enabled.toggled.connect(field.setEnabled)
         dates.addWidget(self.date_enabled)
@@ -362,7 +369,9 @@ class ReportsView(QWidget):
         dates.addWidget(self.date_from)
         dates.addWidget(QLabel("по"))
         dates.addWidget(self.date_to)
+        dates.addStretch(1)
         self.week = button("Текущая неделя", dates)
+        self.week.setFixedWidth(180)
         pick_layout.addLayout(dates)
         note = QLabel("В отчёт можно включать новые, выполняемые и выполненные задачи. Период отбирает по дедлайну задачи, а не по дате завершения.")
         note.setWordWrap(True)

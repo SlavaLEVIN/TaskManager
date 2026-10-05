@@ -1,8 +1,12 @@
+from datetime import date
+
 from PySide6.QtCore import QDate, Qt
 from PySide6.QtWidgets import QAbstractSpinBox
 from task_manager.config import DatabaseConfig
+from task_manager.database import Database
 from task_manager.domain import Role, User
-from task_manager.ui.views import MainWindow, SettingsDialog
+from task_manager.ui.presenter import Presenter
+from task_manager.ui.views import MainWindow, SettingsDialog, TaskDialog
 
 
 def test_transient_connection_and_role_specific_help(qtbot):
@@ -48,10 +52,13 @@ def test_category_actions_and_table_geometry(qtbot):
     window.pages.setCurrentWidget(window.categories)
     assert window.categories.create.isVisible()
     assert window.categories.rename.isVisible()
+    assert window.categories.delete.isVisible()
     assert not window.categories.rename.isEnabled()
+    assert not window.categories.delete.isEnabled()
     window.categories.model.replace([["Документация"]], [object()])
     window.categories.table.selectRow(0)
     assert window.categories.rename.isEnabled()
+    assert window.categories.delete.isEnabled()
     window.pages.setCurrentWidget(window.users)
     assert window.users.table.columnWidth(0) < 100
     assert window.users.table.columnWidth(1) > window.users.table.columnWidth(0)
@@ -59,3 +66,23 @@ def test_category_actions_and_table_geometry(qtbot):
         assert view.model.headers[4] == "Дедлайн"
         assert view.table.columnWidth(4) >= 110
         assert view.table.columnWidth(5) >= 120
+
+
+def test_background_check_does_not_disable_task_editor(qtbot):
+    window = MainWindow()
+    window.close_pending = True
+    qtbot.addWidget(window)
+    presenter = Presenter(window, Database(DatabaseConfig()))
+    dialog = TaskDialog([], [], date.today(), window)
+    qtbot.addWidget(dialog)
+    presenter.dialog = dialog
+    dialog.show()
+    dialog.title.setFocus()
+    presenter.run(lambda: None, lambda _: None, protected=False, quiet=True)
+    assert dialog.title.isEnabled()
+    assert dialog.description.isEnabled()
+    qtbot.waitUntil(lambda: not window.busy, timeout=3000)
+    assert dialog.title.isEnabled()
+    assert dialog.description.isEnabled()
+    presenter.dialog = None
+    dialog.accept()

@@ -239,6 +239,20 @@ class TaskService:
                 raise AppError("Категория больше не существует. Обновите список.")
             return row["id"]
 
+    def delete_category(self, session: Session, category_id: int) -> None:
+        with self.database.transaction() as cursor:
+            current_user(cursor, session, admin=True)
+            cursor.execute("SELECT has_table_privilege(current_user, 'categories', 'DELETE') AS allowed")
+            if not cursor.fetchone()["allowed"]:
+                raise AppError("Для удаления категорий один раз запустите UPDATE_DATABASE.cmd на сервере базы данных.")
+            cursor.execute("SELECT id FROM categories WHERE id=%s FOR UPDATE", (category_id,))
+            if cursor.fetchone() is None:
+                raise AppError("Категория больше не существует. Обновите список.")
+            cursor.execute("SELECT EXISTS(SELECT 1 FROM tasks WHERE category_id=%s) AS used", (category_id,))
+            if cursor.fetchone()["used"]:
+                raise AppError("У категории есть задачи. Сначала перенесите их в другую категорию.")
+            cursor.execute("DELETE FROM categories WHERE id=%s", (category_id,))
+
     @staticmethod
     def _references(cursor, data: TaskInput):
         cursor.execute("SELECT id FROM users WHERE id=%s FOR KEY SHARE", (data.assignee_id,))
