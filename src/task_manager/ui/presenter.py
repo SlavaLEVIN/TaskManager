@@ -125,12 +125,13 @@ class Presenter(QObject):
     @Slot(object, object)
     def finished(self, payload, failure):
         self.window.busy = False
-        if not self.quiet_run:
+        was_quiet = self.quiet_run
+        if not was_quiet:
             self.window.unsetCursor()
             self.window.retry.setEnabled(True)
         if self.dialog:
             self.dialog.set_busy(False)
-        if not self.quiet_run:
+        if not was_quiet:
             self.window.set_activity("Готово")
         self.quiet_run = False
         callback, self.callback = self.callback, None
@@ -139,6 +140,8 @@ class Presenter(QObject):
             self.window.close()
             return
         if failure is not None:
+            if was_quiet and isinstance(failure, DatabaseError):
+                return
             if isinstance(failure, SessionExpired):
                 if self.dialog:
                     self.dialog.reject()
@@ -163,6 +166,8 @@ class Presenter(QObject):
                 self.error(error)
             return
         if error:
+            if was_quiet and isinstance(error, DatabaseError):
+                return
             if isinstance(error, SessionExpired):
                 if self.dialog:
                     self.dialog.reject()

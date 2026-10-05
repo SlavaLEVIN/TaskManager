@@ -3,6 +3,7 @@ from dataclasses import replace
 import pytest
 from PySide6.QtWidgets import QMessageBox
 
+from task_manager.database import Database
 from task_manager.ui.presenter import Presenter
 from task_manager.ui.views import MainWindow
 
@@ -62,4 +63,25 @@ def test_password_reset_logs_out_idle_user(qtbot, env, monkeypatch):
     assert not presenter.session_timer.isActive()
     assert not window.tasks.model.rowCount()
     assert messages and "Пароль изменён" in messages[-1]
+    window.close()
+
+
+def test_background_session_check_does_not_repeat_connection_dialog(qtbot, env, monkeypatch):
+    messages = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda parent, title, message: messages.append(message))
+    window = MainWindow()
+    window.preferences = replace(window.preferences, confirm_exit=False)
+    presenter = Presenter(window, env.db)
+    qtbot.addWidget(window)
+    window.show()
+    sign_in(window, qtbot, "ivan")
+    presenter._services(Database(replace(env.db.config, port=1, connect_timeout=2)))
+    presenter.check_session()
+    qtbot.waitUntil(lambda: not window.busy, timeout=10000)
+    assert window.stack.currentWidget() is window.shell
+    assert not messages
+    presenter._services(env.db)
+    presenter.check_session()
+    qtbot.waitUntil(lambda: not window.busy, timeout=10000)
+    assert window.stack.currentWidget() is window.shell
     window.close()
