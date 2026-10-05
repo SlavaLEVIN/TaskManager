@@ -88,8 +88,9 @@ class User:
 
 @dataclass(frozen=True)
 class Session:
-    """В памяти хранится только ID, права каждый раз читаются из БД."""
+    """Снимок версии пароля позволяет отозвать вход без отдельной таблицы сессий."""
     user_id: int
+    password_fingerprint: bytes = field(default=b"", repr=False, compare=False)
 
 
 @dataclass(frozen=True)

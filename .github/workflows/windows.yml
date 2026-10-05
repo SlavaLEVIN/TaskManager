@@ -51,4 +51,4 @@ jobs:
             windows-screenshots/
             config/database.example.ini
             START_HERE_WINDOWS.md
-            docs/UPDATE_1.2.md
+            docs/UPDATE_1.3.md

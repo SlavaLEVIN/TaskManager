@@ -122,6 +122,8 @@ def test_rename_role_active_session_password_and_assignments(env):
     with pytest.raises(AppError):
         env.users.create_user(env.admin, "иван", "secret", Role.USER)
     env.users.reset_password(env.admin, 2, " New-password! ")
+    with pytest.raises(SessionExpired, match="Пароль изменён"):
+        env.tasks.get_tasks(env.ivan)
     with pytest.raises(AppError):
         env.auth.authenticate("иван", "Test-Password!")
     assert env.auth.authenticate("ИВАН", " New-password! ")[0] == env.ivan

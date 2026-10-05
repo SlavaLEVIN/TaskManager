@@ -48,7 +48,7 @@ class TableModel(QAbstractTableModel):
 
 class TaskTableModel(TableModel):
     def __init__(self, parent=None):
-        super().__init__(["Название", "Ответственный", "Категория", "Приоритет", "Срок", "Статус", "Просрочена"], parent)
+        super().__init__(["Название", "Ответственный", "Категория", "Приоритет", "Дедлайн", "Статус", "Просрочена"], parent)
 
     def set_tasks(self, result: TaskList):
         rows, colors = [], []

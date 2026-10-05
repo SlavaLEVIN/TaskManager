@@ -1,4 +1,5 @@
 import os
+import hashlib
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -47,4 +48,7 @@ def env(postgres, fixture_hash):
     users = UserService(postgres)
     tasks = TaskService(postgres)
     return SimpleNamespace(db=postgres, users=users, tasks=tasks, auth=AuthService(users), reports=ReportService(tasks, users),
-                           admin=Session(1), ivan=Session(2), anna=Session(3), empty=Session(4), today=today)
+                           admin=Session(1, hashlib.sha256(fixture_hash.encode("ascii")).digest()),
+                           ivan=Session(2, hashlib.sha256(fixture_hash.encode("ascii")).digest()),
+                           anna=Session(3, hashlib.sha256(fixture_hash.encode("ascii")).digest()),
+                           empty=Session(4, hashlib.sha256(fixture_hash.encode("ascii")).digest()), today=today)

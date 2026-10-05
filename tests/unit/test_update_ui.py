@@ -37,3 +37,25 @@ def test_transient_connection_and_role_specific_help(qtbot):
     qtbot.addWidget(dialog)
     for field in ('port', 'connect_timeout', 'statement_timeout'):
         assert dialog.fields[field].buttonSymbols() == QAbstractSpinBox.ButtonSymbols.NoButtons
+
+
+def test_category_actions_and_table_geometry(qtbot):
+    window = MainWindow()
+    window.close_pending = True
+    qtbot.addWidget(window)
+    window.show()
+    window.stack.setCurrentWidget(window.shell)
+    window.pages.setCurrentWidget(window.categories)
+    assert window.categories.create.isVisible()
+    assert window.categories.rename.isVisible()
+    assert not window.categories.rename.isEnabled()
+    window.categories.model.replace([["Документация"]], [object()])
+    window.categories.table.selectRow(0)
+    assert window.categories.rename.isEnabled()
+    window.pages.setCurrentWidget(window.users)
+    assert window.users.table.columnWidth(0) < 100
+    assert window.users.table.columnWidth(1) > window.users.table.columnWidth(0)
+    for view in (window.tasks, window.reports):
+        assert view.model.headers[4] == "Дедлайн"
+        assert view.table.columnWidth(4) >= 110
+        assert view.table.columnWidth(5) >= 120

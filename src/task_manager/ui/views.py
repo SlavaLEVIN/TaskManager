@@ -57,6 +57,9 @@ def combo(values, all_label=None):
 def calendar():
     widget = QDateEdit(QDate.currentDate())
     widget.setCalendarPopup(True)
+    widget.setMinimumWidth(152)
+    widget.setMinimumHeight(36)
+    widget.setToolTip("Выберите дату в календаре или введите её вручную")
     popup = QCalendarWidget()
     popup.setVerticalHeaderFormat(QCalendarWidget.VerticalHeaderFormat.NoVerticalHeader)
     popup.setMinimumSize(330, 275)
@@ -95,12 +98,18 @@ def table(model):
     widget.verticalHeader().setVisible(False)
     widget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
     widget.horizontalHeader().setStretchLastSection(False)
-    widget.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-    for column in range(1, model.columnCount()):
-        widget.horizontalHeader().setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
     widget.setWordWrap(False)
     widget.verticalHeader().setDefaultSectionSize(34)
     widget.fit_headers()
+    return widget
+
+
+def task_table(model):
+    widget = table(model)
+    sizes = (250, 152, 185, 115, 115, 130, 112)
+    for column, size in enumerate(sizes):
+        widget.setColumnWidth(column, size)
+    widget.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
     return widget
 
 
@@ -168,19 +177,20 @@ class TasksView(QWidget):
         self.assignee.addItem("Все исполнители", None)
         for column, widget in enumerate((self.status, self.priority, self.category, self.assignee)):
             filters.addWidget(widget, 0, column)
-        self.date_enabled = QCheckBox("Срок от / до")
+        self.date_enabled = QCheckBox("Дедлайн")
         self.date_from, self.date_to = calendar(), calendar()
         for field in (self.date_from, self.date_to):
             field.setEnabled(False)
             self.date_enabled.toggled.connect(field.setEnabled)
         dates = QHBoxLayout()
         dates.addWidget(self.date_enabled)
+        dates.addWidget(QLabel("с"))
         dates.addWidget(self.date_from)
-        dates.addWidget(QLabel("—"))
+        dates.addWidget(QLabel("по"))
         dates.addWidget(self.date_to)
         filters.addLayout(dates, 1, 0, 1, 2)
         self.sort = ComboBox()
-        for label, key in (("По сроку", "due_date"), ("По названию", "title"), ("По приоритету", "priority"),
+        for label, key in (("По дедлайну", "due_date"), ("По названию", "title"), ("По приоритету", "priority"),
                            ("По статусу", "status"), ("По категории", "category")):
             self.sort.addItem(label, key)
         self.descending = QCheckBox("По убыванию")
@@ -192,10 +202,7 @@ class TasksView(QWidget):
         self.active_filters.setWordWrap(True)
         layout.addWidget(self.active_filters)
         self.model = TaskTableModel(self)
-        self.table = table(self.model)
-        self.table.setColumnWidth(0, 300)
-        self.table.setColumnWidth(1, 130)
-        self.table.setColumnWidth(2, 145)
+        self.table = task_table(self.model)
         self.details = QTextEdit()
         self.details.setReadOnly(True)
         self.details.setPlaceholderText("Выберите задачу для просмотра описания. Для отчёта можно выбрать несколько строк (Ctrl / Shift).")
@@ -278,7 +285,9 @@ class UsersView(QWidget):
         self.model = TableModel(["ID", "Логин", "Роль"], self)
         self.table = table(self.model)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.table.setColumnWidth(1, 350)
+        self.table.setColumnWidth(0, 72)
+        self.table.setColumnWidth(2, 180)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.table, 1)
         actions = QHBoxLayout()
         self.create = button("Добавить", actions)
@@ -306,12 +315,18 @@ class CategoriesView(QWidget):
         layout.addWidget(note)
         self.model = TableModel(["Название"], self)
         self.table = table(self.model)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         layout.addWidget(self.table)
         actions = QHBoxLayout()
         self.create = button("Добавить", actions)
         self.rename = button("Переименовать", actions)
         self.refresh = button("Обновить", actions)
+        layout.addLayout(actions)
+        self.rename.setEnabled(False)
+        self.table.selectionModel().selectionChanged.connect(
+            lambda: self.rename.setEnabled(bool(self.table.selectionModel().selectedRows())))
+        self.table.doubleClicked.connect(lambda _: self.rename.click())
 
     def selected(self):
         rows = self.table.selectionModel().selectedRows()
@@ -337,18 +352,19 @@ class ReportsView(QWidget):
         self.clear_selection = button("Снять выбор", filters)
         pick_layout.addLayout(filters)
         dates = QHBoxLayout()
-        self.date_enabled = QCheckBox("Срок задачи с")
+        self.date_enabled = QCheckBox("Дедлайн")
         self.date_from, self.date_to = calendar(), calendar()
         for field in (self.date_from, self.date_to):
             field.setEnabled(False)
             self.date_enabled.toggled.connect(field.setEnabled)
         dates.addWidget(self.date_enabled)
+        dates.addWidget(QLabel("с"))
         dates.addWidget(self.date_from)
         dates.addWidget(QLabel("по"))
         dates.addWidget(self.date_to)
         self.week = button("Текущая неделя", dates)
         pick_layout.addLayout(dates)
-        note = QLabel("В отчёт можно включать новые, выполняемые и выполненные задачи. Период отбирает по сроку задачи, а не по дате завершения.")
+        note = QLabel("В отчёт можно включать новые, выполняемые и выполненные задачи. Период отбирает по дедлайну задачи, а не по дате завершения.")
         note.setWordWrap(True)
         note.setObjectName("muted")
         pick_layout.addWidget(note)
@@ -356,10 +372,7 @@ class ReportsView(QWidget):
         self.active_filters.setWordWrap(True)
         pick_layout.addWidget(self.active_filters)
         self.model = TaskTableModel(self)
-        self.table = table(self.model)
-        self.table.setColumnWidth(0, 260)
-        self.table.setColumnWidth(1, 145)
-        self.table.setColumnWidth(2, 155)
+        self.table = task_table(self.model)
         pick_layout.addWidget(self.table, 1)
         self.selection = QTextEdit()
         self.selection.setReadOnly(True)
@@ -405,7 +418,7 @@ class ReportsView(QWidget):
 
     def update_selection(self):
         ids = self.selected_ids()
-        self.selection.setPlainText(f"Выбрано задач: {len(ids)} из {self.model.rowCount()}. Можно объединить задачи с разными статусами.")
+        self.selection.setPlainText(f"Выбрано задач: {len(ids)} из {self.model.rowCount()}.")
         self.generate.setEnabled(bool(ids))
 
 
@@ -490,7 +503,7 @@ class TaskDialog(EditDialog):
             self.category.setCurrentIndex(self.category.findData(task.category_id))
             self.priority.setCurrentIndex(self.priority.findData(task.priority))
         for label, widget in (("Название", self.title), ("Описание", self.description), ("Ответственный", self.assignee),
-                              ("Категория", self.category), ("Приоритет", self.priority), ("Срок", self.due_date), ("Статус", self.status)):
+                              ("Категория", self.category), ("Приоритет", self.priority), ("Дедлайн", self.due_date), ("Статус", self.status)):
             self.form.addRow(label, widget)
             if widget is self.category:
                 self.form.addRow("", self.category_hint)

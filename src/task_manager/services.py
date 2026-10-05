@@ -1,7 +1,9 @@
 """Прикладные сценарии. Каждый публичный метод заново проверяет полномочия."""
 
 import csv
+import hashlib
 import os
+import secrets
 import tempfile
 from pathlib import Path
 
@@ -26,10 +28,13 @@ def safe_user(row) -> User:
 def current_user(cursor, session: Session, admin: bool = False) -> User:
     if not isinstance(session, Session):
         raise SessionExpired("Войдите в учётную запись.")
-    cursor.execute("SELECT id,login,role FROM users WHERE id=%s", (session.user_id,))
+    cursor.execute("SELECT id,login,role,password_hash FROM users WHERE id=%s", (session.user_id,))
     row = cursor.fetchone()
     if row is None:
         raise SessionExpired("Учётная запись удалена. Выполните вход заново.")
+    fingerprint = hashlib.sha256(row["password_hash"].encode("ascii")).digest()
+    if not secrets.compare_digest(session.password_fingerprint, fingerprint):
+        raise SessionExpired("Пароль изменён. Войдите в учётную запись заново.")
     user = safe_user(row)
     if admin and not user.is_admin():
         raise AccessError("Действие доступно только администратору. Права могли измениться.")
@@ -123,7 +128,7 @@ class AuthService:
         user = self.user_service._credentials(login)
         if user is None or not bcrypt.checkpw(encoded, user.password_hash.encode("ascii")):
             raise AppError("Неверный логин или пароль.")
-        session = Session(user.id)
+        session = Session(user.id, hashlib.sha256(user.password_hash.encode("ascii")).digest())
         return session, self.user_service.get_current(session)
 
 
@@ -326,14 +331,14 @@ class ReportService:
         for task in result.tasks:
             lines.extend((f"Задача №{task.id}: {task.title}", f"Ответственный: {task.assignee}",
                           f"Категория: {task.category}", f"Приоритет: {LABELS[task.priority]}",
-                          f"Срок: {task.due_date:%d.%m.%Y}", f"Статус: {LABELS[task.status]}",
+                          f"Дедлайн: {task.due_date:%d.%m.%Y}", f"Статус: {LABELS[task.status]}",
                           *(("Просрочена",) if task.is_overdue(result.today) else ()),
                           f"Описание: {task.description}", "", "─" * 48, ""))
         return "\n".join(lines)
 
     def export_tasks(self, session: Session, query: TaskQuery, path: str | Path) -> None:
         result = self.task_service.get_tasks(session, query, require_admin=True)
-        write_csv(path, ["ID", "Название", "Описание", "Ответственный", "Категория", "Приоритет", "Срок", "Статус", "Просрочена"],
+        write_csv(path, ["ID", "Название", "Описание", "Ответственный", "Категория", "Приоритет", "Дедлайн", "Статус", "Просрочена"],
                   [[t.id, t.title, t.description, t.assignee, t.category, LABELS[t.priority], t.due_date.isoformat(),
                     LABELS[t.status], "Да" if t.is_overdue(result.today) else "Нет"] for t in result.tasks])
 

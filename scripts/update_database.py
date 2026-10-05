@@ -27,7 +27,7 @@ def upgrade(connection, technical_user):
 
 def main():
     config = DatabaseConfig.load()
-    print("Обновление категорий TaskManager 1.2. Задачи, пользователи и пароли сохраняются.")
+    print("Обновление прав на категории TaskManager. Задачи, пользователи и пароли сохраняются.")
     host = ask("Сервер PostgreSQL", config.host)
     port = int(ask("Порт", str(config.port)))
     dbname = ask("Существующая база TaskManager", config.dbname)

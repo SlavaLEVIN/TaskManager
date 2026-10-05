@@ -27,6 +27,7 @@ def apply_theme(preferences):
     resources = Path(__file__).resolve().parents[1] / "resources"
     check = (resources / "check.svg").as_posix()
     arrow = (resources / f"arrow-{preferences.theme}.svg").as_posix()
+    calendar_icon = (resources / f"calendar-{preferences.theme}.svg").as_posix()
     up = (resources / f"up-{preferences.theme}.svg").as_posix()
     palette = QPalette()
     roles = {"Window": "bg", "WindowText": "text", "Base": "surface", "AlternateBase": "alternate",
@@ -67,8 +68,11 @@ def apply_theme(preferences):
         QSpinBox::up-arrow {{ image: url("{up}"); width: 12px; height: 12px; }}
         QSpinBox::down-arrow {{ image: url("{arrow}"); width: 12px; height: 12px; }}
         QComboBox {{ padding-right: 24px; }}
-        QComboBox::drop-down, QDateEdit::drop-down {{ width: 22px; border: none; }}
-        QComboBox::down-arrow, QDateEdit::down-arrow {{ image: url("{arrow}"); width: 12px; height: 12px; }}
+        QComboBox::drop-down {{ width: 22px; border: none; }}
+        QComboBox::down-arrow {{ image: url("{arrow}"); width: 12px; height: 12px; }}
+        QDateEdit {{ padding-left: 10px; padding-right: 30px; }}
+        QDateEdit::drop-down {{ width: 28px; border: none; border-left: 1px solid {c['border']}; }}
+        QDateEdit::down-arrow {{ image: url("{calendar_icon}"); width: 18px; height: 18px; }}
         QComboBox:disabled, QDateEdit:disabled, QSpinBox:disabled {{ color: {c['disabled']}; background: {c['bg']}; }}
         QComboBox QAbstractItemView {{ background: {c['surface']}; color: {c['text']};
             selection-background-color: {c['selected']}; selection-color: {c['selected_text']};

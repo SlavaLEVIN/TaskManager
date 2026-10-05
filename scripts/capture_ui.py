@@ -16,7 +16,7 @@ from task_manager.config import DatabaseConfig
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output", default="docs/screenshots/v1.2")
+    parser.add_argument("--output", default="docs/screenshots/v1.3")
     args = parser.parse_args()
     destination = Path(args.output)
     destination.mkdir(parents=True, exist_ok=True)
@@ -54,6 +54,13 @@ def main():
         window.tasks.table.selectRow(1)
         window.pages.setCurrentWidget(window.tasks)
         capture(window, "tasks")
+        window.tasks.date_enabled.setChecked(True)
+        capture(window, "deadline-filter")
+        window.tasks.date_enabled.setChecked(False)
+        window.categories.model.replace([[category.name] for category in categories], categories)
+        window.pages.setCurrentWidget(window.categories)
+        capture(window, "categories")
+        window.pages.setCurrentWidget(window.tasks)
         window.tasks.status.showPopup()
         capture(window.tasks.status.view().window(), "status-popup")
         window.tasks.status.hidePopup()
