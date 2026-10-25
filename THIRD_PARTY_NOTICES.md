@@ -1,17 +1,11 @@
-# Компоненты переносимой поставки
+# Сторонние компоненты
 
-Исходный код приложения находится в `src/`. Переносимая Windows-поставка содержит официальные бинарные пакеты следующих проектов:
+Windows EXE собраны с Python 3.13.8 и включают библиотеки PySide6-Essentials/Qt 6.9.3, shiboken6 6.9.3, psycopg2-binary 2.9.10 и bcrypt 4.3.0. Их условия распространения и исходные материалы опубликованы авторами:
 
-| Компонент | Версия | Источник |
-|---|---|---|
-| CPython embeddable x64 | 3.13.8 | https://www.python.org/ftp/python/3.13.8/python-3.13.8-embed-amd64.zip |
-| PySide6-Essentials / Qt | 6.9.3 | https://pypi.org/project/PySide6-Essentials/6.9.3/ |
-| shiboken6 | 6.9.3 | https://pypi.org/project/shiboken6/6.9.3/ |
-| psycopg2-binary / libpq | 2.9.10 | https://pypi.org/project/psycopg2-binary/2.9.10/ |
-| bcrypt | 4.3.0 | https://pypi.org/project/bcrypt/4.3.0/ |
+- Python: https://www.python.org/psf/license/
+- PySide6 и Qt: https://doc.qt.io/qtforpython-6/licenses.html
+- shiboken6: https://pypi.org/project/shiboken6/6.9.3/
+- psycopg2-binary: https://pypi.org/project/psycopg2-binary/2.9.10/
+- bcrypt: https://pypi.org/project/bcrypt/4.3.0/
 
-Оригинальные LICENSE и каталоги `*.dist-info/licenses` сохраняются в runtime. Python распространяется по лицензии PSF; PySide6/Qt — на условиях соответствующих свободных лицензий, включённых в пакеты. Исходные тексты компонентов и условия доступны по ссылкам проектов; Qt/PySide: https://code.qt.io/cgit/pyside/pyside-setup.git/ и https://code.qt.io/cgit/qt/ . Библиотеки расположены отдельно в `runtime/Lib/site-packages` и могут быть заменены совместимыми сборками.
-
-Отдельный установщик PostgreSQL получен с официального адреса EDB, указанного на странице PostgreSQL для Windows. Он не модифицируется приложением. Его лицензионные материалы входят в установщик. Само приложение не устанавливает сервер скрытно и не запускает этот установщик автоматически.
-
-При распространении собственной EXE-сборки сохраняйте применимые лицензионные уведомления компонентов рядом с EXE. В переносимом комплекте все оригинальные уведомления поставляются вместе с библиотеками.
+PostgreSQL устанавливается отдельно; архив TaskManager не содержит сервер PostgreSQL.

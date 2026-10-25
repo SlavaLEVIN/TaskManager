@@ -4,10 +4,9 @@ from getpass import getpass
 import psycopg2
 from psycopg2 import sql
 
-from common import ROOT
 from task_manager.config import DatabaseConfig
 from task_manager.domain import AppError
-from setup_database import ask
+from common import ask
 
 
 def upgrade(connection, technical_user):
@@ -51,6 +50,8 @@ def main():
 if __name__ == "__main__":
     try:
         main()
+    except UnicodeError:
+        raise SystemExit("Не удалось прочитать ответ PostgreSQL. Проверьте адрес сервера и пароль администратора PostgreSQL.") from None
     except (AppError, ValueError, OSError) as error:
         raise SystemExit(str(error))
     except psycopg2.Error as error:

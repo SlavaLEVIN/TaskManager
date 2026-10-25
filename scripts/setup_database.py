@@ -6,13 +6,9 @@ import bcrypt
 import psycopg2
 from psycopg2 import sql
 
-from common import ROOT
+from common import ROOT, ask
 from task_manager.config import DatabaseConfig, config_path
 from task_manager.domain import AppError, password_bytes, required_text
-
-
-def ask(label, default):
-    return input(f"{label} [{default}]: ").strip() or default
 
 
 def main():
@@ -69,12 +65,14 @@ def main():
         connection.close()
     DatabaseConfig(host=host, port=port, dbname=dbname, user=technical_user, password=technical_password).save()
     print(f"Готово. Настройки клиента сохранены: {config_path()}")
-    print(f"Запустите START.cmd и войдите как {login!r} с заданным паролем приложения.")
+    print(f"Запустите TaskManager.exe и войдите как {login!r} с заданным паролем приложения.")
 
 
 if __name__ == "__main__":
     try:
         main()
+    except UnicodeError:
+        raise SystemExit("Не удалось прочитать ответ PostgreSQL. Проверьте адрес сервера и пароль postgres; базу повторно не создавайте, пока не проверите результат первой попытки.") from None
     except (AppError, ValueError, OSError) as error:
         raise SystemExit(str(error))
     except psycopg2.Error as error:
