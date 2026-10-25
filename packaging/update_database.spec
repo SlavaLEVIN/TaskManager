@@ -8,6 +8,6 @@ a = Analysis(
     hookspath=[], hooksconfig={}, runtime_hooks=[], excludes=["PySide6"], noarchive=False,
 )
 pyz = PYZ(a.pure)
-exe = EXE(pyz, a.scripts, a.binaries, a.datas, [], name="TaskManager-Update",
+exe = EXE(pyz, a.scripts, a.binaries, a.datas, [], name="Обновить базу",
           icon=str(root / "src/task_manager/resources/app.ico"), console=True,
           debug=False, bootloader_ignore_signals=False, strip=False, upx=False)

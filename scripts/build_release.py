@@ -1,4 +1,4 @@
-"""Собирает пользовательский архив из готовых Windows EXE."""
+"""Собирает архив программы."""
 
 import argparse
 from pathlib import Path
@@ -8,10 +8,9 @@ from zipfile import ZIP_DEFLATED, ZipFile
 ROOT = Path(__file__).resolve().parents[1]
 FILES = (
     "TaskManager.exe",
-    "TaskManager-Setup.exe",
-    "TaskManager-Update.exe",
-    "START_HERE_WINDOWS.md",
-    "THIRD_PARTY_NOTICES.md",
+    "Создать базу.exe",
+    "Обновить базу.exe",
+    "Инструкция.txt",
 )
 
 
@@ -21,10 +20,10 @@ def main():
     parser.add_argument("--output", type=Path, default=ROOT / "release")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
-    archive_path = args.output / "TaskManager-Windows-Portable.zip"
+    archive_path = args.output / "TaskManager.zip"
     with ZipFile(archive_path, "w", ZIP_DEFLATED, compresslevel=6) as archive:
         for name in FILES:
-            source = (args.dist if name.endswith(".exe") else ROOT) / name
+            source = (args.dist if name.endswith(".exe") else ROOT / "docs") / name
             if not source.is_file():
                 parser.error(f"Не найден файл: {source}")
             if name.endswith(".exe") and source.read_bytes()[:2] != b"MZ":

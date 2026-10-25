@@ -1,4 +1,4 @@
-name: Windows build
+name: Сборка
 on: [workflow_dispatch]
 permissions:
   contents: read
@@ -12,14 +12,14 @@ jobs:
         with:
           python-version: '3.13.8'
           architecture: x64
-      - run: python -m pip install -r requirements-build.txt
+      - run: python -m pip install -r packaging/requirements.txt
       - run: python -m PyInstaller --clean --noconfirm packaging/task_manager.spec
       - run: python -m PyInstaller --clean --noconfirm packaging/setup_database.spec
       - run: python -m PyInstaller --clean --noconfirm packaging/update_database.spec
       - uses: actions/upload-artifact@v4
         with:
-          name: TaskManager-Windows-x64
+          name: TaskManager
           path: |
             dist/TaskManager.exe
-            dist/TaskManager-Setup.exe
-            dist/TaskManager-Update.exe
+            dist/Создать базу.exe
+            dist/Обновить базу.exe
