@@ -10,8 +10,6 @@ FILES = (
     "TaskManager.exe",
     "TaskManager-Setup.exe",
     "TaskManager-Update.exe",
-    "SETUP_DATABASE.cmd",
-    "UPDATE_DATABASE.cmd",
     "START_HERE_WINDOWS.md",
     "THIRD_PARTY_NOTICES.md",
 )

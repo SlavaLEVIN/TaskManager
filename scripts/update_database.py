@@ -6,7 +6,7 @@ from psycopg2 import sql
 
 from task_manager.config import DatabaseConfig
 from task_manager.domain import AppError
-from common import ask
+from common import ask, pause_if_frozen
 
 
 def upgrade(connection, technical_user):
@@ -48,11 +48,18 @@ def main():
 
 
 if __name__ == "__main__":
+    exit_code = 0
     try:
         main()
     except UnicodeError:
-        raise SystemExit("Не удалось прочитать ответ PostgreSQL. Проверьте адрес сервера и пароль администратора PostgreSQL.") from None
+        print("Не удалось прочитать ответ PostgreSQL. Проверьте адрес сервера и пароль администратора PostgreSQL.")
+        exit_code = 1
     except (AppError, ValueError, OSError) as error:
-        raise SystemExit(str(error))
+        print(error)
+        exit_code = 1
     except psycopg2.Error as error:
-        raise SystemExit(f"Обновление не выполнено ({error.pgcode or type(error).__name__}). Изменения отменены. Проверьте параметры и права администратора PostgreSQL.")
+        print(f"Обновление не выполнено ({error.pgcode or type(error).__name__}). Изменения отменены. Проверьте параметры и права администратора PostgreSQL.")
+        exit_code = 1
+    finally:
+        pause_if_frozen()
+    raise SystemExit(exit_code)

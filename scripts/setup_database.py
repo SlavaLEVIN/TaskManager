@@ -6,7 +6,7 @@ import bcrypt
 import psycopg2
 from psycopg2 import sql
 
-from common import ROOT, ask
+from common import ROOT, ask, pause_if_frozen
 from task_manager.config import DatabaseConfig, config_path
 from task_manager.domain import AppError, password_bytes, required_text
 
@@ -69,11 +69,18 @@ def main():
 
 
 if __name__ == "__main__":
+    exit_code = 0
     try:
         main()
     except UnicodeError:
-        raise SystemExit("Не удалось прочитать ответ PostgreSQL. Проверьте адрес сервера и пароль postgres; базу повторно не создавайте, пока не проверите результат первой попытки.") from None
+        print("Не удалось прочитать ответ PostgreSQL. Проверьте адрес сервера и пароль postgres; базу повторно не создавайте, пока не проверите результат первой попытки.")
+        exit_code = 1
     except (AppError, ValueError, OSError) as error:
-        raise SystemExit(str(error))
+        print(error)
+        exit_code = 1
     except psycopg2.Error as error:
-        raise SystemExit(f"Ошибка PostgreSQL ({error.pgcode or type(error).__name__}). Проверьте сервер и права. Если создание уже началось, объекты могли сохраниться; автоматического удаления нет.")
+        print(f"Ошибка PostgreSQL ({error.pgcode or type(error).__name__}). Проверьте сервер и права. Если создание уже началось, объекты могли сохраниться; автоматического удаления нет.")
+        exit_code = 1
+    finally:
+        pause_if_frozen()
+    raise SystemExit(exit_code)

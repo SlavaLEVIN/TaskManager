@@ -224,7 +224,7 @@ class TaskService:
             current_user(cursor, session, admin=True)
             cursor.execute("SELECT has_table_privilege(current_user, 'categories', 'INSERT') AND has_table_privilege(current_user, 'categories', 'UPDATE') AS allowed")
             if not cursor.fetchone()["allowed"]:
-                raise AppError("Для управления категориями администратору базы нужно один раз запустить UPDATE_DATABASE.cmd из комплекта обновления. Задачи и пользователи сохранятся.")
+                raise AppError("Для управления категориями администратору базы нужно один раз запустить TaskManager-Update.exe из комплекта обновления. Задачи и пользователи сохранятся.")
             cursor.execute("SELECT pg_advisory_xact_lock(%s)", (USER_LOCK + 1,))
             cursor.execute("SELECT id FROM categories WHERE lower(name)=lower(%s)", (name,))
             duplicate = cursor.fetchone()
@@ -244,7 +244,7 @@ class TaskService:
             current_user(cursor, session, admin=True)
             cursor.execute("SELECT has_table_privilege(current_user, 'categories', 'DELETE') AS allowed")
             if not cursor.fetchone()["allowed"]:
-                raise AppError("Для удаления категорий один раз запустите UPDATE_DATABASE.cmd на сервере базы данных.")
+                raise AppError("Для удаления категорий один раз запустите TaskManager-Update.exe на сервере базы данных.")
             cursor.execute("SELECT id FROM categories WHERE id=%s FOR UPDATE", (category_id,))
             if cursor.fetchone() is None:
                 raise AppError("Категория больше не существует. Обновите список.")

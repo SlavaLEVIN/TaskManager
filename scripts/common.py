@@ -3,6 +3,16 @@ import sys
 from pathlib import Path
 
 ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
+
+
+def pause_if_frozen():
+    if getattr(sys, "frozen", False):
+        try:
+            input("Нажмите Enter, чтобы закрыть окно...")
+        except (EOFError, KeyboardInterrupt):
+            pass
+
+
 if not getattr(sys, "frozen", False):
     sys.path.insert(0, str(ROOT / "src"))
 
