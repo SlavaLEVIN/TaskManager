@@ -14,10 +14,10 @@
 | `scripts/setup_database.py`, `scripts/update_database.py` | создание и обновление базы |
 | `database/` | SQL-схема и начальные категории |
 | `packaging/`, `scripts/build_windows.ps1` | сборка трёх EXE |
-| `docs/` | руководства, схемы и ручная приёмка |
+| `docs/` | руководства и схемы |
 
 Рабочие пароли не включены в исходники. Настройки клиента хранятся в `%LOCALAPPDATA%\TaskManager\database.ini` либо в `database.ini` рядом с EXE, если файл был размещён там вручную. Задачи и пользователи хранятся в PostgreSQL, поэтому обновление клиентских файлов их не удаляет.
 
-Для сборки из исходников на Windows установите Python 3.13 x64 и запустите `BUILD_WINDOWS.cmd`. Скрипт соберёт три EXE в папку `dist`. Перед передачей пользователям пройдите [ручные сценарии приёмки](docs/acceptance_tests.md).
+Для сборки из исходников на Windows установите Python 3.13 x64 и запустите `BUILD_WINDOWS.cmd`. Скрипт соберёт три EXE в папку `dist`. Приёмку проводите по ТЗ.
 
 Руководства: [пользователю](docs/user_manual.md), [системному программисту](docs/system_programmer_manual.md), [обновление](docs/UPDATE.md).
